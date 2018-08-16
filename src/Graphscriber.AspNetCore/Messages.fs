@@ -1,0 +1,1 @@
+﻿namespace Graphscriber.AspNetCore
