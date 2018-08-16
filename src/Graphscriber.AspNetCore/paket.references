@@ -1,1 +1,4 @@
 FSharp.Core
+FSharp.Data.GraphQL.Server
+Newtonsoft.Json
+Microsoft.AspNetCore.Http

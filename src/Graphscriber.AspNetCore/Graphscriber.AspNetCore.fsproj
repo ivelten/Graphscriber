@@ -1,14 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
-  <ItemGroup>
-    <Compile Include="Messages.fs" />
-    <Compile Include="WebSocket.fs" />
-  </ItemGroup>
   <ItemGroup>
     <None Include="paket.references" />
+    <Compile Include="Helpers.fs" />
+    <Compile Include="TypeSystem.fs" />
+    <Compile Include="JsonConverters.fs" />
+    <Compile Include="GQLWebSocket.fs" />
+    <Compile Include="GQLWebSocketManager.fs" />
+    <Compile Include="GQLWebSocketMiddleware.fs" />
   </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
