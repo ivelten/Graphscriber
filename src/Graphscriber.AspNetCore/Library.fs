@@ -1,4 +1,4 @@
-namespace Graphscriber.AspNet
+namespace Graphscriber.AspNetCore
 
 module Say =
     let hello name =
