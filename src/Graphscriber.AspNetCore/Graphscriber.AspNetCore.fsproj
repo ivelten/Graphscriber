@@ -3,7 +3,6 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="paket.references" />
     <Compile Include="Helpers.fs" />
     <Compile Include="TypeSystem.fs" />
     <Compile Include="JsonConverters.fs" />
@@ -11,6 +10,9 @@
     <Compile Include="GQLWebSocketManager.fs" />
     <Compile Include="GQLWebSocketMiddleware.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="paket.references" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
