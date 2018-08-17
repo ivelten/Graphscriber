@@ -5,9 +5,9 @@ open System.Net.WebSockets
 open Microsoft.AspNetCore.Http
 open FSharp.Data.GraphQL
 
-type GraphQLWebSocketMiddleware<'Root>(next : RequestDelegate, 
+type GQLWebSocketMiddleware<'Root>(next : RequestDelegate, 
                                        executor : Executor<'Root>, 
-                                       root : 'Root, 
+                                       getRoot : IGQLWebSocket<'Root> -> 'Root, 
                                        socketManager : IGQLWebSocketManager<'Root>,
                                        ?socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
     let socketFactory = defaultArg socketFactory (fun ws -> upcast new GQLWebSocket<'Root>(ws))
@@ -18,7 +18,7 @@ type GraphQLWebSocketMiddleware<'Root>(next : RequestDelegate,
             | true ->
                 let! socket = ctx.WebSockets.AcceptWebSocketAsync("graphql-ws") |> Async.AwaitTask
                 use socket = socketFactory socket
-                socketManager.StartSocket(socket, executor, root)
+                do! socketManager.StartSocket(socket, executor, getRoot socket) |> Async.AwaitTask
             | false ->
-                next.Invoke(ctx) |> ignore
+                do! next.Invoke(ctx) |> Async.AwaitTask
         } |> Async.StartAsTask :> Task

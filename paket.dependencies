@@ -3,4 +3,5 @@ source https://api.nuget.org/v3/index.json
 nuget FSharp.Core
 nuget FSharp.Data.GraphQL.Server beta
 nuget Microsoft.AspNetCore.Http
+nuget Microsoft.AspNetCore.WebSockets
 nuget Newtonsoft.Json

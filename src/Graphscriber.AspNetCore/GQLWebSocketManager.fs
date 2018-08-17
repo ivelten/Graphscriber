@@ -1,6 +1,7 @@
 namespace Graphscriber.AspNetCore
 
 open System
+open System.Threading.Tasks
 open System.Net.WebSockets
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Execution
@@ -8,7 +9,7 @@ open System.Collections.Generic
 open System.Collections.Concurrent
 
 type IGQLWebSocketManager<'Root> =
-    abstract member StartSocket : IGQLWebSocket<'Root> * Executor<'Root> * 'Root -> unit
+    abstract member StartSocket : IGQLWebSocket<'Root> * Executor<'Root> * 'Root -> Task
 
 type GQLWebSocketManager<'Root>() =
     let sockets : IDictionary<Guid, IGQLWebSocket<'Root>> = 
@@ -21,13 +22,13 @@ type GQLWebSocketManager<'Root>() =
     let sendMessage (socket : IGQLWebSocket<'Root>) (message : GQLServerMessage) = 
         async {
             if socket.State = WebSocketState.Open then
-                do! socket.SendAsync(message)
+                do! socket.SendAsync(message) |> Async.AwaitTask
             else
                 disposeSocket socket
         }
 
     let receiveMessage (executor : Executor<'Root>) (replacements : Map<string, obj>) (socket : IGQLWebSocket<'Root>) =
-        socket.ReceiveAsync(executor, replacements)
+        socket.ReceiveAsync(executor, replacements) |> Async.AwaitTask
 
     let handleMessages (executor : Executor<'Root>) (root : 'Root) (socket : IGQLWebSocket<'Root>) = async {
         let send id output =
@@ -58,7 +59,7 @@ type GQLWebSocketManager<'Root>() =
                     |> handle id
                     do! Data (id, Dictionary<string, obj>()) |> sendMessage socket
                 | Some ConnectionTerminate ->
-                    do! socket.CloseAsync()
+                    do! socket.CloseAsync() |> Async.AwaitTask
                     disposeSocket socket
                     loop <- false
                 | Some (ParseError (id, _)) ->
@@ -73,7 +74,7 @@ type GQLWebSocketManager<'Root>() =
 
     member __.StartSocket(socket : IGQLWebSocket<'Root>, executor : Executor<'Root>, root : 'Root) =
         sockets.Add(socket.Id, socket)
-        handleMessages executor root socket |> Async.RunSynchronously
+        handleMessages executor root socket |> Async.StartAsTask :> Task
 
     interface IGQLWebSocketManager<'Root> with
         member this.StartSocket(socket, executor, root) = this.StartSocket(socket, executor, root)

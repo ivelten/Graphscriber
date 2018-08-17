@@ -10,6 +10,7 @@
     <Compile Include="GQLWebSocket.fs" />
     <Compile Include="GQLWebSocketManager.fs" />
     <Compile Include="GQLWebSocketMiddleware.fs" />
+    <Compile Include="ApplicationBuilderExtensions.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -5,6 +5,7 @@ open System.Net.WebSockets
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Threading
+open System.Threading.Tasks
 open Newtonsoft.Json
 open FSharp.Data.GraphQL
 open Graphscriber.AspNetCore.JsonConverters
@@ -15,10 +16,10 @@ type IGQLWebSocket<'Root> =
     abstract member Unsubscribe : string -> unit
     abstract member UnsubscribeAll : unit -> unit
     abstract member Id : Guid
-    abstract member SendAsync : GQLServerMessage -> Async<unit>
-    abstract member ReceiveAsync : Executor<'Root> * Map<string, obj> -> Async<GQLClientMessage option>
+    abstract member SendAsync : GQLServerMessage -> Task
+    abstract member ReceiveAsync : Executor<'Root> * Map<string, obj> -> Task<GQLClientMessage option>
     abstract member State : WebSocketState
-    abstract member CloseAsync : unit -> Async<unit>
+    abstract member CloseAsync : unit -> Task
 
 type GQLWebSocket<'Root> (inner : WebSocket) =
     let subscriptions : IDictionary<string, IDisposable> = 
@@ -53,7 +54,7 @@ type GQLWebSocket<'Root> (inner : WebSocket) =
             let buffer = utf8Bytes json
             let segment = new ArraySegment<byte>(buffer)
             do! inner.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None) |> Async.AwaitTask
-        }
+        } |> Async.StartAsTask :> Task
 
     member __.ReceiveAsync(executor : Executor<'Root>, replacements : Map<string, obj>) =
         async {
@@ -72,14 +73,12 @@ type GQLWebSocket<'Root> (inner : WebSocket) =
                     |> Seq.singleton
                     |> jsonSerializerSettings
                 return JsonConvert.DeserializeObject<GQLClientMessage>(message, settings) |> Some
-        }
+        } |> Async.StartAsTask
 
     member __.Dispose = inner.Dispose
 
     member __.CloseAsync() = 
-        async {
-            do! inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None) |> Async.AwaitTask
-        }        
+        inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
 
     member __.State = inner.State
 
