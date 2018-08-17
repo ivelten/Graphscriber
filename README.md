@@ -7,6 +7,8 @@ Graphscriber is a middleware made for FSharp.Data.GraphQL that adds support for 
 To integrate everything, you just need to add a reference to `Graphscriber.AspNetCore` namespace, and call the extension method `UseGQLWebSockets`:
 
 ```fsharp
+open Graphscriber.AspNetCore
+
 type Startup private () =
     // ...
     member __.Configure(app: IApplicationBuilder) =
