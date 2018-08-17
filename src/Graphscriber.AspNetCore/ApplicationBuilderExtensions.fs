@@ -8,9 +8,18 @@ open System.Net.WebSockets
 module ApplicationBuilderExtensions =
     type IApplicationBuilder with
         member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
-                                            getRoot : IGQLWebSocket<'Root> -> 'Root, 
-                                            socketManager : IGQLWebSocketManager<'Root>,
+                                            rootFactory : IGQLWebSocket<'Root> -> 'Root, 
+                                            ?socketManager : IGQLWebSocketManager<'Root>,
                                             ?socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
-            let socketFactory = defaultArg socketFactory (fun ws -> upcast new GQLWebSocket<'Root>(ws))                   
+            let socketManager = defaultArg socketManager (upcast GQLWebSocketManager())
+            let socketFactory = defaultArg socketFactory (fun ws -> upcast new GQLWebSocket<'Root>(ws))
             this.UseWebSockets()
-                .UseMiddleware<GQLWebSocketMiddleware<'Root>>(executor, getRoot, socketManager, socketFactory)
+                .UseMiddleware<GQLWebSocketMiddleware<'Root>>(executor, rootFactory, socketManager, socketFactory)
+
+        member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
+                                            root : 'Root,
+                                            ?socketManager : IGQLWebSocketManager<'Root>,
+                                            ?socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
+            let socketManager = defaultArg socketManager (upcast GQLWebSocketManager())
+            let socketFactory = defaultArg socketFactory (fun ws -> upcast new GQLWebSocket<'Root>(ws))
+            this.UseGQLWebSockets(executor, (fun _ -> root), socketManager, socketFactory)
