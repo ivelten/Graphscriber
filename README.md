@@ -12,7 +12,7 @@ open Graphscriber.AspNetCore
 type Startup private () =
     // ...
     member __.Configure(app: IApplicationBuilder) =
-        let executor = MySchema.executor // Any other instance of Executor<'Root>
-        let root = MySchema.root         // Any any other instance of root object of type 'Root
+        let executor = MySchema.executor // An instance of Executor<'Root>
+        let root = MySchema.root         // An instance of root object of type 'Root
         app.UseGQLWebSockets(executor, root)
 ```
