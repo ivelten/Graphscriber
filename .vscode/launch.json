@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Giraffe Test Server",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Graphscriber.AspNetCore.Tests.WebApp/bin/Debug/netcoreapp2.1/Graphscriber.AspNetCore.Tests.WebApp.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "console": "internalConsole",
+            "stopAtEntry": false,
+            "internalConsoleOptions": "openOnSessionStart"
+        }
+    ]
+}

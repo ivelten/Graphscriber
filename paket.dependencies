@@ -2,6 +2,11 @@ source https://api.nuget.org/v3/index.json
 
 nuget FSharp.Core
 nuget FSharp.Data.GraphQL.Server beta
+nuget Giraffe
+nuget Microsoft.AspNetCore.App
 nuget Microsoft.AspNetCore.Http
 nuget Microsoft.AspNetCore.WebSockets
+nuget Microsoft.NET.Test.Sdk 15.8.0
 nuget Newtonsoft.Json
+nuget xunit 2.3.1
+nuget xunit.runner.visualstudio 2.3.1
