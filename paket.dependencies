@@ -1,13 +1,13 @@
 source https://api.nuget.org/v3/index.json
 
+nuget Expecto
 nuget FSharp.Core
 nuget FSharp.Data.GraphQL.Server beta
 nuget Giraffe
 nuget Microsoft.AspNetCore.App
 nuget Microsoft.AspNetCore.Http
+nuget Microsoft.AspNetCore.TestHost
 nuget Microsoft.AspNetCore.WebSockets
 nuget Microsoft.NET.Test.Sdk
 nuget Newtonsoft.Json
 nuget System.Reactive 3.1.1
-nuget xunit
-nuget xunit.runner.visualstudio

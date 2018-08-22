@@ -41,7 +41,7 @@ module Storage =
             match x with
             | Appointment a -> a.Reminder.Value.Time
             | Reminder r -> r.Time)
-        |> Seq.take limit
+        |> Seq.truncate limit
 
     let addReminder subject time =
         let r = { Id = System.Guid.NewGuid(); Subject = subject; Time = time }
