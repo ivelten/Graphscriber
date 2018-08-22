@@ -8,11 +8,8 @@ open FSharp.Data.GraphQL
 type GQLWebSocketMiddleware<'Root>(next : RequestDelegate, 
                                    executor : Executor<'Root>, 
                                    rootFactory : IGQLWebSocket<'Root> -> 'Root, 
-                                   ?socketManager : IGQLWebSocketManager<'Root>,
-                                   ?socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
-    let socketManager = defaultArg socketManager (upcast GQLWebSocketManager())
-    let socketFactory = defaultArg socketFactory (fun ws -> upcast new GQLWebSocket<'Root>(ws))
-
+                                   socketManager : IGQLWebSocketManager<'Root>,
+                                   socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
     member __.Invoke(ctx : HttpContext) =
         async {
             match ctx.WebSockets.IsWebSocketRequest with
