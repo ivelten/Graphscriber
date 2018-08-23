@@ -6,6 +6,7 @@ open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open Newtonsoft.Json.Serialization
 open System.Collections.Generic
+open System.Net.Sockets
 
 [<AutoOpen>]
 module internal Helpers =

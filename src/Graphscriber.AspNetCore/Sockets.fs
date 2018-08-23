@@ -10,6 +10,39 @@ open Newtonsoft.Json
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Execution
 
+[<AutoOpen>]
+module internal WebSocketUtils =
+    let sendMessage message (converter : JsonConverter) (socket : WebSocket) =
+        async {
+            let settings =
+                converter
+                |> Seq.singleton
+                |> jsonSerializerSettings
+            let json = JsonConvert.SerializeObject(message, settings)
+            let buffer = utf8Bytes json
+            let segment = new ArraySegment<byte>(buffer)
+            do! socket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None) |> Async.AwaitTask
+        } |> Async.StartAsTask :> Task
+
+    let receiveMessage<'T> (converter : JsonConverter) (socket : WebSocket) =
+        async {
+            let buffer = Array.zeroCreate 4096
+            let segment = ArraySegment<byte>(buffer)
+            do! socket.ReceiveAsync(segment, CancellationToken.None)
+                |> Async.AwaitTask
+                |> Async.Ignore
+            let message = utf8String buffer
+            if isNullOrWhiteSpace message
+            then
+                return None
+            else
+                let settings =
+                    converter
+                    |> Seq.singleton
+                    |> jsonSerializerSettings
+                return JsonConvert.DeserializeObject<'T>(message, settings) |> Some
+        } |> Async.StartAsTask
+
 type IGQLServerSocket =
     inherit IDisposable
     abstract member Subscribe : string * IDisposable -> unit
@@ -21,7 +54,7 @@ type IGQLServerSocket =
     abstract member State : WebSocketState
     abstract member CloseAsync : unit -> Task
 
-type GQLServerSocket (inner : WebSocket) =
+type [<Sealed>] GQLServerSocket (inner : WebSocket) =
     let subscriptions : IDictionary<string, IDisposable> = 
         upcast ConcurrentDictionary<string, IDisposable>()
 
@@ -45,35 +78,12 @@ type GQLServerSocket (inner : WebSocket) =
     member __.Id = id
 
     member __.SendAsync(message: GQLServerMessage) =
-        async {
-            let settings =
-                GQLServerMessageConverter() :> JsonConverter
-                |> Seq.singleton
-                |> jsonSerializerSettings
-            let json = JsonConvert.SerializeObject(message, settings)
-            let buffer = utf8Bytes json
-            let segment = new ArraySegment<byte>(buffer)
-            do! inner.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None) |> Async.AwaitTask
-        } |> Async.StartAsTask :> Task
+        let converter = GQLServerMessageConverter() :> JsonConverter
+        sendMessage message converter inner
 
     member __.ReceiveAsync() =
-        async {
-            let buffer = Array.zeroCreate 4096
-            let segment = ArraySegment<byte>(buffer)
-            do! inner.ReceiveAsync(segment, CancellationToken.None)
-                |> Async.AwaitTask
-                |> Async.Ignore
-            let message = utf8String buffer
-            if isNullOrWhiteSpace message
-            then
-                return None
-            else
-                let settings =
-                    GQLClientMessageConverter() :> JsonConverter
-                    |> Seq.singleton
-                    |> jsonSerializerSettings
-                return JsonConvert.DeserializeObject<GQLClientMessage>(message, settings) |> Some
-        } |> Async.StartAsTask
+        let converter = GQLClientMessageConverter() :> JsonConverter
+        receiveMessage<GQLClientMessage> converter inner
 
     member __.Dispose = inner.Dispose
 
@@ -99,6 +109,7 @@ type GQLServerSocket (inner : WebSocket) =
 type IGQLServerSocketManager<'Root> =
     abstract member StartSocket : IGQLServerSocket * Executor<'Root> * 'Root -> Task
 
+[<AllowNullLiteral>]
 type GQLServerSocketManager<'Root>() =
     let sockets : IDictionary<Guid, IGQLServerSocket> = 
         upcast ConcurrentDictionary<Guid, IGQLServerSocket>()
@@ -166,3 +177,35 @@ type GQLServerSocketManager<'Root>() =
 
     interface IGQLServerSocketManager<'Root> with
         member this.StartSocket(socket, executor, root) = this.StartSocket(socket, executor, root)
+
+type IGQLClientSocket =
+    inherit IDisposable
+    abstract member SendAsync : GQLClientMessage -> Task
+    abstract member ReceiveAsync : unit -> Task<GQLServerMessage option>
+    abstract member State : WebSocketState
+    abstract member CloseAsync : unit -> Task
+
+type [<Sealed>] GQLClientSocket (inner : WebSocket) =
+    member __.SendAsync(message: GQLClientMessage) =
+        let converter = GQLClientMessageConverter() :> JsonConverter
+        sendMessage message converter inner
+
+    member __.ReceiveAsync() =
+        let converter = GQLServerMessageConverter() :> JsonConverter
+        receiveMessage<GQLServerMessage> converter inner
+
+    member __.Dispose = inner.Dispose
+
+    member __.CloseAsync() = 
+        inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
+
+    member __.State = inner.State
+
+    interface IDisposable with
+        member this.Dispose() = this.Dispose()
+
+    interface IGQLClientSocket with
+        member this.SendAsync(message) = this.SendAsync(message)
+        member this.ReceiveAsync() = this.ReceiveAsync()
+        member this.State = this.State
+        member this.CloseAsync() = this.CloseAsync()
