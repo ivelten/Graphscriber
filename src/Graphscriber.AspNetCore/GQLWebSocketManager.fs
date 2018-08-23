@@ -27,8 +27,8 @@ type GQLWebSocketManager<'Root>() =
                 disposeSocket socket
         }
 
-    let receiveMessage (executor : Executor<'Root>) (replacements : Map<string, obj>) (socket : IGQLWebSocket<'Root>) =
-        socket.ReceiveAsync(executor, replacements) |> Async.AwaitTask
+    let receiveMessage (socket : IGQLWebSocket<'Root>) =
+        socket.ReceiveAsync() |> Async.AwaitTask
 
     let handleMessages (executor : Executor<'Root>) (root : 'Root) (socket : IGQLWebSocket<'Root>) = async {
         let send id output =
@@ -49,12 +49,12 @@ type GQLWebSocketManager<'Root>() =
         try
             let mutable loop = true
             while loop do
-                let! message = socket |> receiveMessage executor Map.empty
+                let! message = socket |> receiveMessage
                 match message with
                 | Some ConnectionInit ->
                     do! sendMessage socket ConnectionAck
                 | Some (Start (id, payload)) ->
-                    executor.AsyncExecute(payload.ExecutionPlan, root, payload.Variables)
+                    executor.AsyncExecute(payload.Query, root, payload.Variables)
                     |> Async.RunSynchronously
                     |> handle id
                     do! Data (id, Dictionary<string, obj>()) |> sendMessage socket
@@ -63,7 +63,7 @@ type GQLWebSocketManager<'Root>() =
                     disposeSocket socket
                     loop <- false
                 | Some (ParseError (id, _)) ->
-                    do! Error (id, "Invalid message type!") |> sendMessage socket
+                    do! Error (id, "Socket message parsing failed.") |> sendMessage socket
                 | Some (Stop id) ->
                     socket.Unsubscribe(id)
                     do! Complete id |> sendMessage socket

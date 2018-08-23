@@ -1,10 +1,9 @@
 ﻿namespace Graphscriber.AspNetCore
 
 open FSharp.Data.GraphQL.Execution
-open FSharp.Data.GraphQL.Types
 
 type GQLQuery =
-    { ExecutionPlan : ExecutionPlan
+    { Query : string
       Variables : Map<string, obj> }
 
 type GQLClientMessage =

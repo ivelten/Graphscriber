@@ -4,9 +4,6 @@ open Newtonsoft.Json
 open Newtonsoft.Json.Linq
 open System.Reflection
 open Microsoft.FSharp.Reflection
-open FSharp.Data.GraphQL
-open FSharp.Data.GraphQL.Types
-open FSharp.Data.GraphQL.Types.Patterns
 open System
 open Graphscriber.AspNetCore
 
@@ -30,53 +27,66 @@ type OptionConverter() =
     override __.ReadJson(_, _, _, _) = raise <| NotSupportedException()
 
 [<Sealed>]
-type GQLQueryConverter<'Root>(executor : Executor<'Root>, replacements: Map<string, obj>, ?meta : Metadata) =
+type GQLQueryConverter<'Root>() =
     inherit JsonConverter()
 
     override __.CanConvert(t) = t = typeof<GQLQuery>   
     
-    override __.WriteJson(_, _, _) = raise <| NotSupportedException()
+    override __.WriteJson(writer, value, _) = 
+        let casted = value :?> GQLQuery
+        writer.WritePropertyName("query")
+        writer.WriteValue(casted.Query)
+        if not (Map.isEmpty casted.Variables) then
+            writer.WritePropertyName("variables")
+            writer.WriteStartObject()
+            casted.Variables
+            |> Seq.iter (fun var -> 
+                writer.WritePropertyName(var.Key)
+                writer.WriteValue(var.Value))
+            writer.WriteEndObject()
     
-    override __.ReadJson(reader, _, _, serializer) =
+    override __.ReadJson(reader, _, _, _) =
         let jobj = JObject.Load reader
         let query = jobj.Property("query").Value.ToString()
-        let plan = 
-            match meta with
-            | Some meta -> executor.CreateExecutionPlan(query, meta = meta)
-            | None -> executor.CreateExecutionPlan(query)
-        let varDefs = plan.Variables
-        match varDefs with
-        | [] -> upcast { ExecutionPlan = plan; Variables = Map.empty }
-        | vs ->
-            Map.iter(fun path rep -> jobj.SelectToken(path).Replace(JObject.FromObject(rep))) replacements
-            let vars = JObject.Parse(jobj.Property("variables").Value.ToString())
-            let variables = 
-                vs
-                |> List.fold (fun (acc: Map<string, obj>)(vdef: VarDef) ->
-                    match vars.TryGetValue(vdef.Name) with
-                    | true, jval ->
-                        let v = 
-                            match jval.Type with
-                            | JTokenType.Null -> null
-                            | JTokenType.String -> jval.ToString() :> obj
-                            | _ -> jval.ToObject(vdef.TypeDef.Type, serializer)
-                        Map.add (vdef.Name) v acc
-                    | false, _  ->
-                        match vdef.DefaultValue, vdef.TypeDef with
-                        | Some _, _ -> acc
-                        | _, Nullable _ -> acc
-                        | None, _ -> failwithf "Variable %s has no default value and is missing!" vdef.Name) Map.empty
-            upcast { ExecutionPlan = plan; Variables = variables }
+        let variables = jobj.Property("variables").Value.ToString() |> JsonConvert.DeserializeObject<Map<string, obj>>
+        upcast { Query = query; Variables = variables }
 
 [<Sealed>]
-type GQLClientMessageConverter<'Root>(executor : Executor<'Root>, replacements: Map<string, obj>, ?meta : Metadata) =
+type GQLClientMessageConverter<'Root>() =
     inherit JsonConverter()
 
     override __.CanWrite = false
     
     override __.CanConvert(t) = t = typeof<GQLClientMessage>
     
-    override __.WriteJson(_, _, _) = raise <| NotSupportedException()
+    override __.WriteJson(writer, obj, _) = 
+        let msg = obj :?> GQLClientMessage
+        match msg with
+        | ConnectionInit ->
+            writer.WritePropertyName("type")
+            writer.WriteValue("connection_init")
+        | ConnectionTerminate ->
+            writer.WritePropertyName("type")
+            writer.WriteValue("connection_terminate")
+        | Start (id, payload) ->
+            writer.WritePropertyName("type")
+            writer.WriteValue("start")
+            writer.WritePropertyName("id")
+            writer.WriteValue(id)
+            writer.WritePropertyName("payload")
+            let settings = JsonSerializerSettings()
+            let queryConverter = GQLQueryConverter() :> JsonConverter
+            let optionConverter = OptionConverter() :> JsonConverter
+            settings.Converters <- [| optionConverter; queryConverter |]
+            settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
+            let json = JsonConvert.SerializeObject(payload, settings)
+            writer.WriteRaw(json)
+        | Stop id ->
+            writer.WritePropertyName("type")
+            writer.WriteValue("stop")
+            writer.WritePropertyName("id")
+            writer.WriteValue(id)
+        | ParseError _ -> raise <| InvalidOperationException("Can not serialize a parse error message.")
     
     override __.ReadJson(reader, _, _, _) =
         let jobj = JObject.Load reader
@@ -91,23 +101,20 @@ type GQLClientMessageConverter<'Root>(executor : Executor<'Root>, replacements: 
             | Some id, Some payload ->
                 try
                     let settings = JsonSerializerSettings()
-                    let queryConverter =
-                        match meta with
-                        | Some meta -> GQLQueryConverter(executor, replacements, meta) :> JsonConverter
-                        | None -> GQLQueryConverter(executor, replacements) :> JsonConverter
+                    let queryConverter = GQLQueryConverter() :> JsonConverter
                     let optionConverter = OptionConverter() :> JsonConverter
                     settings.Converters <- [| optionConverter; queryConverter |]
                     settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
                     let req = JsonConvert.DeserializeObject<GQLQuery>(payload, settings)
                     upcast Start(id, req)
-                with e -> upcast ParseError(Some id, "Parse Failed with Exception: " + e.Message)
-            | None, _ -> upcast ParseError(None, "Malformed GQL_START message, expected id field but found none")
-            | _, None -> upcast ParseError(None, "Malformed GQL_START message, expected payload field but found none")
+                with e -> upcast ParseError(Some id, "Message parsing failed. " + e.Message)
+            | None, _ -> upcast ParseError(None, "Malformed GQL_START message, expected id field but found none.")
+            | _, None -> upcast ParseError(None, "Malformed GQL_START message, expected payload field but found none.")
         | "stop" ->
             match tryGetJsonProperty jobj "id" with
             | Some id -> upcast Stop(id)
-            | None -> upcast ParseError(None, "Malformed GQL_STOP message, expected id field but found none")
-        | typ -> upcast ParseError(None, "Message Type " + typ + " is not supported!")
+            | None -> upcast ParseError(None, "Malformed GQL_STOP message, expected id field but found none.")
+        | typ -> upcast ParseError(None, "Message Type " + typ + " is not supported.")
 
 [<Sealed>]
 type GQLServerMessageConverter() =

@@ -7,7 +7,6 @@ open System.Collections.Generic
 open System.Threading
 open System.Threading.Tasks
 open Newtonsoft.Json
-open FSharp.Data.GraphQL
 open Graphscriber.AspNetCore.JsonConverters
 
 type IGQLWebSocket<'Root> =
@@ -17,7 +16,7 @@ type IGQLWebSocket<'Root> =
     abstract member UnsubscribeAll : unit -> unit
     abstract member Id : Guid
     abstract member SendAsync : GQLServerMessage -> Task
-    abstract member ReceiveAsync : Executor<'Root> * Map<string, obj> -> Task<GQLClientMessage option>
+    abstract member ReceiveAsync : unit -> Task<GQLClientMessage option>
     abstract member State : WebSocketState
     abstract member CloseAsync : unit -> Task
 
@@ -56,7 +55,7 @@ type GQLWebSocket<'Root> (inner : WebSocket) =
             do! inner.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None) |> Async.AwaitTask
         } |> Async.StartAsTask :> Task
 
-    member __.ReceiveAsync(executor : Executor<'Root>, replacements : Map<string, obj>) =
+    member __.ReceiveAsync() =
         async {
             let buffer = Array.zeroCreate 4096
             let segment = ArraySegment<byte>(buffer)
@@ -69,7 +68,7 @@ type GQLWebSocket<'Root> (inner : WebSocket) =
                 return None
             else
                 let settings =
-                    GQLClientMessageConverter(executor, replacements) :> JsonConverter
+                    GQLClientMessageConverter() :> JsonConverter
                     |> Seq.singleton
                     |> jsonSerializerSettings
                 return JsonConvert.DeserializeObject<GQLClientMessage>(message, settings) |> Some
@@ -91,6 +90,6 @@ type GQLWebSocket<'Root> (inner : WebSocket) =
         member this.UnsubscribeAll() = this.UnsubscribeAll()
         member this.Id = this.Id
         member this.SendAsync(message) = this.SendAsync(message)
-        member this.ReceiveAsync(executor, replacements) = this.ReceiveAsync(executor, replacements)
+        member this.ReceiveAsync() = this.ReceiveAsync()
         member this.State = this.State
         member this.CloseAsync() = this.CloseAsync()

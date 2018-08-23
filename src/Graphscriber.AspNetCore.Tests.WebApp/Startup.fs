@@ -12,7 +12,7 @@ type Startup() =
 
     let webApp =
         choose
-            [ route "/ping" >=> text "Service is running." ]
+            [ route "/healthcheck" >=> text "Service is running." ]
 
     member __.ConfigureServices(services : IServiceCollection) =
         services.AddGiraffe() |> ignore
