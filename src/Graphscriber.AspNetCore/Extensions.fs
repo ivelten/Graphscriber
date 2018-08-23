@@ -1,16 +1,18 @@
 namespace Graphscriber.AspNetCore
 
+open System
 open Microsoft.AspNetCore.Builder
 open FSharp.Data.GraphQL
 open System.Net.WebSockets
+open Microsoft.Extensions.DependencyInjection
 
 [<AutoOpen>]
-module ApplicationBuilderExtensions =
-    let private socketManagerOrDefault (socketManager : IGQLServerSocketManager<'Root> option) = 
-        defaultArg socketManager (upcast GQLServerSocketManager())
+module Extensions =
+    let private socketManagerOrDefault (socketManager : IGQLServerSocketManager<'Root> option) (serviceProvider : IServiceProvider) = 
+        defaultArg socketManager (serviceProvider.GetService<IGQLServerSocketManager<'Root>>())
 
     let private socketFactoryOrDefault (socketFactory : (WebSocket -> IGQLServerSocket) option) =
-        defaultArg socketFactory (fun ws -> upcast new GQLServerSocket(ws))
+        defaultArg socketFactory (fun socket -> upcast new GQLServerSocket(socket))
 
     type IApplicationBuilder with
         member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
@@ -21,7 +23,7 @@ module ApplicationBuilderExtensions =
                 .UseMiddleware<GQLWebSocketMiddleware<'Root>>(
                     executor,
                     rootFactory, 
-                    socketManagerOrDefault socketManager,
+                    socketManagerOrDefault socketManager this.ApplicationServices,
                     socketFactoryOrDefault socketFactory)
 
         member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
@@ -31,5 +33,9 @@ module ApplicationBuilderExtensions =
             this.UseGQLWebSockets(
                     executor,
                     (fun _ -> root), 
-                    socketManagerOrDefault socketManager,
+                    socketManagerOrDefault socketManager this.ApplicationServices,
                     socketFactoryOrDefault socketFactory)
+
+    type IServiceCollection with
+        member this.AddGQLWebSockets<'Root>() =
+            this.AddSingleton<IGQLServerSocketManager<'Root>>(GQLServerSocketManager<'Root>())

@@ -15,7 +15,7 @@ type Startup() =
             [ route "/healthcheck" >=> text "Service is running." ]
 
     member __.ConfigureServices(services : IServiceCollection) =
-        services.AddGiraffe() |> ignore
+        services.AddGiraffe().AddGQLWebSockets() |> ignore
 
     member __.Configure(app : IApplicationBuilder, _ : IHostingEnvironment) =
         let errorHandler (ex : Exception) (log : ILogger) =
