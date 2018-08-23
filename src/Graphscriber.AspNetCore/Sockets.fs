@@ -95,6 +95,7 @@ type GQLServerSocket (inner : WebSocket) =
         member this.State = this.State
         member this.CloseAsync() = this.CloseAsync()
 
+[<AllowNullLiteral>]
 type IGQLServerSocketManager<'Root> =
     abstract member StartSocket : IGQLServerSocket * Executor<'Root> * 'Root -> Task
 

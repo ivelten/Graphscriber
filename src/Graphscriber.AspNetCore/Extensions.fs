@@ -8,8 +8,13 @@ open Microsoft.Extensions.DependencyInjection
 
 [<AutoOpen>]
 module Extensions =
-    let private socketManagerOrDefault (socketManager : IGQLServerSocketManager<'Root> option) (serviceProvider : IServiceProvider) = 
-        defaultArg socketManager (serviceProvider.GetService<IGQLServerSocketManager<'Root>>())
+    let private socketManagerOrDefault (socketManager : IGQLServerSocketManager<'Root> option) (serviceProvider : IServiceProvider) =
+        match socketManager with
+        | Some mgr -> mgr
+        | None ->
+            match serviceProvider.GetService<IGQLServerSocketManager<'Root>>() with
+            | null -> raise <| InvalidOperationException("No server socket manager implementation is registered. You must add a implementation of IGQLServerSocketManager<'Root> to the service collection of the application, or provide one in the middleware arguments.")
+            | mgr -> mgr
 
     let private socketFactoryOrDefault (socketFactory : (WebSocket -> IGQLServerSocket) option) =
         defaultArg socketFactory (fun socket -> upcast new GQLServerSocket(socket))
@@ -23,7 +28,7 @@ module Extensions =
                 .UseMiddleware<GQLWebSocketMiddleware<'Root>>(
                     executor,
                     rootFactory, 
-                    socketManagerOrDefault socketManager this.ApplicationServices,
+                    socketManagerOrDefault socketManager (this.ApplicationServices),
                     socketFactoryOrDefault socketFactory)
 
         member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
@@ -33,9 +38,9 @@ module Extensions =
             this.UseGQLWebSockets(
                     executor,
                     (fun _ -> root), 
-                    socketManagerOrDefault socketManager this.ApplicationServices,
+                    socketManagerOrDefault socketManager (this.ApplicationServices),
                     socketFactoryOrDefault socketFactory)
 
     type IServiceCollection with
-        member this.AddGQLWebSockets<'Root>() =
+        member this.AddGQLServerSocketManager<'Root>() =
             this.AddSingleton<IGQLServerSocketManager<'Root>>(GQLServerSocketManager<'Root>())
