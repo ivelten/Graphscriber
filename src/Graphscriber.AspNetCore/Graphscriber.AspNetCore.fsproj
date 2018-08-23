@@ -5,10 +5,8 @@
   <ItemGroup>
     <Compile Include="Helpers.fs" />
     <Compile Include="TypeSystem.fs" />
-    <Compile Include="JsonConverters.fs" />
-    <Compile Include="GQLWebSocket.fs" />
-    <Compile Include="GQLWebSocketManager.fs" />
-    <Compile Include="GQLWebSocketMiddleware.fs" />
+    <Compile Include="Sockets.fs" />
+    <Compile Include="Middleware.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
   </ItemGroup>
   <ItemGroup>

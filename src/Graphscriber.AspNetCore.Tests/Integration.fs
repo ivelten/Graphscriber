@@ -8,6 +8,7 @@ open System.Net
 
 let private server = new TestServer(Program.createWebHostBuilder [||])
 let private client = server.CreateClient()
+let private socket = server.CreateWebSocketClient()
 
 [<Tests>]
 let endpointTests =

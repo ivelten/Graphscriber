@@ -6,17 +6,17 @@ open System.Net.WebSockets
 
 [<AutoOpen>]
 module ApplicationBuilderExtensions =
-    let private socketManagerOrDefault (socketManager : IGQLWebSocketManager<'Root> option) = 
-        defaultArg socketManager (upcast GQLWebSocketManager())
+    let private socketManagerOrDefault (socketManager : IGQLServerSocketManager<'Root> option) = 
+        defaultArg socketManager (upcast GQLServerSocketManager())
 
-    let private socketFactoryOrDefault (socketFactory : (WebSocket -> IGQLWebSocket<'Root>) option) =
-        defaultArg socketFactory (fun ws -> upcast new GQLWebSocket<'Root>(ws))
+    let private socketFactoryOrDefault (socketFactory : (WebSocket -> IGQLServerSocket) option) =
+        defaultArg socketFactory (fun ws -> upcast new GQLServerSocket(ws))
 
     type IApplicationBuilder with
         member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
-                                            rootFactory : IGQLWebSocket<'Root> -> 'Root, 
-                                            ?socketManager : IGQLWebSocketManager<'Root>,
-                                            ?socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
+                                            rootFactory : IGQLServerSocket -> 'Root, 
+                                            ?socketManager : IGQLServerSocketManager<'Root>,
+                                            ?socketFactory : WebSocket -> IGQLServerSocket) =
             this.UseWebSockets()
                 .UseMiddleware<GQLWebSocketMiddleware<'Root>>(
                     executor,
@@ -26,8 +26,8 @@ module ApplicationBuilderExtensions =
 
         member this.UseGQLWebSockets<'Root>(executor : Executor<'Root>,
                                             root : 'Root,
-                                            ?socketManager : IGQLWebSocketManager<'Root>,
-                                            ?socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
+                                            ?socketManager : IGQLServerSocketManager<'Root>,
+                                            ?socketFactory : WebSocket -> IGQLServerSocket) =
             this.UseGQLWebSockets(
                     executor,
                     (fun _ -> root), 

@@ -7,9 +7,9 @@ open FSharp.Data.GraphQL
 
 type GQLWebSocketMiddleware<'Root>(next : RequestDelegate, 
                                    executor : Executor<'Root>, 
-                                   rootFactory : IGQLWebSocket<'Root> -> 'Root, 
-                                   socketManager : IGQLWebSocketManager<'Root>,
-                                   socketFactory : WebSocket -> IGQLWebSocket<'Root>) =
+                                   rootFactory : IGQLServerSocket -> 'Root, 
+                                   socketManager : IGQLServerSocketManager<'Root>,
+                                   socketFactory : WebSocket -> IGQLServerSocket) =
     member __.Invoke(ctx : HttpContext) =
         async {
             match ctx.WebSockets.IsWebSocketRequest with
