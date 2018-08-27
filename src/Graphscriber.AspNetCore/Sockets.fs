@@ -20,7 +20,7 @@ module internal WebSocketUtils =
                 |> jsonSerializerSettings
             let json = JsonConvert.SerializeObject(message, settings)
             let buffer = utf8Bytes json
-            let segment = new ArraySegment<byte>(buffer)
+            let segment = ArraySegment<byte>(buffer)
             do! socket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None) |> Async.AwaitTask
         } |> Async.StartAsTask :> Task
 
@@ -53,6 +53,8 @@ type IGQLServerSocket =
     abstract member ReceiveAsync : unit -> Task<GQLClientMessage option>
     abstract member State : WebSocketState
     abstract member CloseAsync : unit -> Task
+    abstract member CloseStatus : WebSocketCloseStatus option
+    abstract member CloseStatusDescription : string option
 
 type [<Sealed>] GQLServerSocket (inner : WebSocket) =
     let subscriptions : IDictionary<string, IDisposable> = 
@@ -92,6 +94,10 @@ type [<Sealed>] GQLServerSocket (inner : WebSocket) =
 
     member __.State = inner.State
 
+    member __.CloseStatus = inner.CloseStatus |> Option.ofNullable
+
+    member __.CloseStatusDescription = inner.CloseStatusDescription |> Option.ofObj
+
     interface IDisposable with
         member this.Dispose() = this.Dispose()
 
@@ -104,6 +110,8 @@ type [<Sealed>] GQLServerSocket (inner : WebSocket) =
         member this.ReceiveAsync() = this.ReceiveAsync()
         member this.State = this.State
         member this.CloseAsync() = this.CloseAsync()
+        member this.CloseStatus = this.CloseStatus
+        member this.CloseStatusDescription = this.CloseStatusDescription
 
 [<AllowNullLiteral>]
 type IGQLServerSocketManager<'Root> =
@@ -184,6 +192,8 @@ type IGQLClientSocket =
     abstract member ReceiveAsync : unit -> Task<GQLServerMessage option>
     abstract member State : WebSocketState
     abstract member CloseAsync : unit -> Task
+    abstract member CloseStatus : WebSocketCloseStatus option
+    abstract member CloseStatusDescription : string option
 
 type [<Sealed>] GQLClientSocket (inner : WebSocket) =
     member __.SendAsync(message: GQLClientMessage) =
@@ -201,6 +211,10 @@ type [<Sealed>] GQLClientSocket (inner : WebSocket) =
 
     member __.State = inner.State
 
+    member __.CloseStatus = inner.CloseStatus |> Option.ofNullable
+
+    member __.CloseStatusDescription = inner.CloseStatusDescription |> Option.ofObj
+
     interface IDisposable with
         member this.Dispose() = this.Dispose()
 
@@ -209,3 +223,5 @@ type [<Sealed>] GQLClientSocket (inner : WebSocket) =
         member this.ReceiveAsync() = this.ReceiveAsync()
         member this.State = this.State
         member this.CloseAsync() = this.CloseAsync()
+        member this.CloseStatus = this.CloseStatus
+        member this.CloseStatusDescription = this.CloseStatusDescription

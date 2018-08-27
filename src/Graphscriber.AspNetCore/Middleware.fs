@@ -15,9 +15,14 @@ type GQLWebSocketMiddleware<'Root>(next : RequestDelegate,
             match ctx.WebSockets.IsWebSocketRequest with
             | true ->
                 let! socket = ctx.WebSockets.AcceptWebSocketAsync("graphql-ws") |> Async.AwaitTask
-                use socket = socketFactory socket
-                let root = rootFactory socket
-                do! socketManager.StartSocket(socket, executor, root) |> Async.AwaitTask
+                if not (ctx.WebSockets.WebSocketRequestedProtocols.Contains(socket.SubProtocol))
+                then
+                    do! socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Server only supports graphql-ws protocol.", ctx.RequestAborted) 
+                        |> Async.AwaitTask
+                else
+                    use socket = socketFactory socket
+                    let root = rootFactory socket
+                    do! socketManager.StartSocket(socket, executor, root) |> Async.AwaitTask
             | false ->
                 do! next.Invoke(ctx) |> Async.AwaitTask
         } |> Async.StartAsTask :> Task

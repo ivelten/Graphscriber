@@ -69,21 +69,27 @@ and GQLQuery =
 
 and [<Sealed>] OptionConverter() =
     inherit JsonConverter()
-    
+
     override __.CanConvert(t) = 
-        t.GetTypeInfo().IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
+        t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<option<_>>
 
     override __.WriteJson(writer, value, serializer) =
-        let getFields value =
-            let _, fields = FSharpValue.GetUnionFields(value, value.GetType())
-            fields.[0]
         let value = 
-            match value with
-            | null ->null
-            | _ -> getFields value
+            if value = null then null
+            else 
+                let _,fields = FSharpValue.GetUnionFields(value, value.GetType())
+                fields.[0]  
         serializer.Serialize(writer, value)
 
-    override __.ReadJson(_, _, _, _) = raise <| NotSupportedException()
+    override __.ReadJson(reader, t, _, serializer) =        
+        let innerType = t.GetGenericArguments().[0]
+        let innerType = 
+            if innerType.IsValueType then (typedefof<Nullable<_>>).MakeGenericType([|innerType|])
+            else innerType        
+        let value = serializer.Deserialize(reader, innerType)
+        let cases = FSharpType.GetUnionCases(t)
+        if value = null then FSharpValue.MakeUnion(cases.[0], [||])
+        else FSharpValue.MakeUnion(cases.[1], [|value|])
 
 and [<Sealed>] GQLQueryConverter() =
     inherit JsonConverter()
