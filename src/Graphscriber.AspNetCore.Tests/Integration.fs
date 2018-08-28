@@ -1,38 +1,61 @@
 module Graphscriber.AspNetCore.Tests.Integration
 
 open Expecto
-open Graphscriber.AspNetCore.Tests.WebApp
-open Microsoft.AspNetCore.TestHost
 open Graphscriber.AspNetCore
 open Graphscriber.AspNetCore.Tests.Helpers
 open System.Net
 open System.Net.WebSockets
 
-let private server = new TestServer(Program.createWebHostBuilder [||])
-let private client = server.CreateClient()
-let private socket = server.CreateWebSocketClient()
-
-[<Tests>]
-let endpointTests =
-
+let endpointTests server =
     testList "Endpoint tests" [
-
-        testCase "Healthcheck test" <| fun _ -> 
-            get client "/healthcheck" |> check [ 
+        test "Healthcheck test" {
+            use client = createHttpClient server
+            client
+            |> get "/healthcheck"
+            |> check [ 
                 statusCodeEquals HttpStatusCode.OK
-                contentEquals "Service is running." ] ]
+                contentEquals "Service is running." 
+            ] 
+        } 
+    ]
 
-[<Tests>]
-let webSocketTests =
-    testSequenced <| testList "WebSocket tests" [
+let webSocketTests server =
+    testList "WebSocket tests" [
+        test "Should not connect if not using expected protocol" {
+            let client = createWebSocketClient server
+            use connection = connect client
+            connection
+            |> waitMessage
+            |> check [
+                stateEquals WebSocketState.CloseReceived
+                closeStatusEquals (Some WebSocketCloseStatus.ProtocolError)
+                closeStatusDescriptionEquals (Some "Server only supports graphql-ws protocol.") 
+            ] 
+        }
+        test "Should be able to connect if using expected protocol" {
+            let client = createWebSocketClient server
+            use connection =
+                client
+                |> setProtocol "graphql-ws"
+                |> connect
+            connection
+            |> stateEquals WebSocketState.Open 
+        }
+        test "Should be able to start a GQL connection" {
+            let client = createWebSocketClient server
+            use connection =
+                client
+                |> setProtocol "graphql-ws"
+                |> connect
+            connection
+            |> sendMessage ConnectionInit
+            |> receiveMessage
+            |> equals (Some ConnectionAck)
+        }
+    ]
 
-            testCase "Should not connect if not using expected protocol" <| fun _ ->
-                connect socket |> check [
-                    stateEquals WebSocketState.Closed
-                    closeStatusEquals (Some WebSocketCloseStatus.ProtocolError)
-                    closeStatusDescriptionEquals (Some "Server only supports graphql-ws protocol.") ]
-
-            testCase "Should be able to connect if using expected protocol" <| fun _ ->
-                socket.SubProtocols.Add("graphql-ws")
-                connect socket
-                |> stateEquals WebSocketState.Open ]
+let runIntegrationTests config args server =
+    [ endpointTests; webSocketTests ]
+    |> List.map (fun test -> test server)
+    |> testList "Integration tests"
+    |> runTestsWithArgs config args

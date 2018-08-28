@@ -2,31 +2,28 @@
 
 open FSharp.Data.GraphQL.Execution
 open Newtonsoft.Json
+open Newtonsoft.Json.Serialization
 open Microsoft.FSharp.Reflection
-open System.Reflection
 open System
 open Newtonsoft.Json.Linq
+open System.Collections.Generic
 
 type GQLClientMessage =
     | ConnectionInit
     | ConnectionTerminate
     | Start of id : string * payload : GQLQuery
     | Stop of id : string
-    | ParseError of id : string option * err : string
     
-    static member private GetSerializationSettings() =
-        JsonSerializerSettings()
-        |> tee (fun settings ->
-            let messageConverter = GQLClientMessageConverter() :> JsonConverter
-            let optionConverter = OptionConverter() :> JsonConverter
-            settings.Converters <- [| optionConverter; messageConverter |]
-            settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver())
+    static member SerializationSettings =
+        JsonSerializerSettings(
+            Converters = [| GQLClientMessageConverter(); OptionConverter() |],
+            ContractResolver = CamelCasePropertyNamesContractResolver())
     
     member this.ToJsonString() =
-        JsonConvert.SerializeObject(this, GQLClientMessage.GetSerializationSettings())
+        JsonConvert.SerializeObject(this, GQLClientMessage.SerializationSettings)
     
     static member FromJsonString(json : string) =
-        JsonConvert.DeserializeObject<GQLClientMessage>(json, GQLClientMessage.GetSerializationSettings())
+        JsonConvert.DeserializeObject<GQLClientMessage>(json, GQLClientMessage.SerializationSettings)
 
 
 and GQLServerMessage =
@@ -36,36 +33,31 @@ and GQLServerMessage =
     | Error of id : string option * err : string
     | Complete of id : string
 
-    static member private GetSerializationSettings() =
-        JsonSerializerSettings()
-        |> tee (fun settings ->
-            let messageConverter = GQLServerMessageConverter() :> JsonConverter
-            let optionConverter = OptionConverter() :> JsonConverter
-            settings.Converters <- [| optionConverter; messageConverter |]
-            settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver())
+    static member SerializationSettings =
+        JsonSerializerSettings(
+            Converters = [| GQLServerMessageConverter(); OptionConverter() |],
+            ContractResolver = CamelCasePropertyNamesContractResolver())
     
     member this.ToJsonString() =
-        JsonConvert.SerializeObject(this, GQLServerMessage.GetSerializationSettings())
+        JsonConvert.SerializeObject(this, GQLServerMessage.SerializationSettings)
     
     static member FromJsonString(json : string) =
-        JsonConvert.DeserializeObject<GQLServerMessage>(json, GQLServerMessage.GetSerializationSettings())
+        JsonConvert.DeserializeObject<GQLServerMessage>(json, GQLServerMessage.SerializationSettings)
 
 and GQLQuery =
     { Query : string
       Variables : Map<string, obj> }
 
-    static member private GetSerializationSettings() =
-        JsonSerializerSettings()
-        |> tee (fun settings ->
-            let optionConverter = OptionConverter() :> JsonConverter
-            settings.Converters <- [| optionConverter |]
-            settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver())
+    static member SerializationSettings =
+        JsonSerializerSettings(
+            Converters = [| OptionConverter() |],
+            ContractResolver = CamelCasePropertyNamesContractResolver())
     
     member this.ToJsonString() =
-        JsonConvert.SerializeObject(this, GQLQuery.GetSerializationSettings())
+        JsonConvert.SerializeObject(this, GQLQuery.SerializationSettings)
     
     static member FromJsonString(json : string) =
-        JsonConvert.DeserializeObject<GQLQuery>(json, GQLQuery.GetSerializationSettings())
+        JsonConvert.DeserializeObject<GQLQuery>(json, GQLQuery.SerializationSettings)
 
 and [<Sealed>] OptionConverter() =
     inherit JsonConverter()
@@ -118,38 +110,24 @@ and [<Sealed>] GQLQueryConverter() =
 and [<Sealed>] GQLClientMessageConverter() =
     inherit JsonConverter()
 
-    override __.CanWrite = false
-    
     override __.CanConvert(t) = t = typeof<GQLClientMessage>
     
     override __.WriteJson(writer, obj, _) = 
         let msg = obj :?> GQLClientMessage
+        let jobj = JObject()
         match msg with
         | ConnectionInit ->
-            writer.WritePropertyName("type")
-            writer.WriteValue("connection_init")
+            jobj.Add(JProperty("type", "connection_init"))
         | ConnectionTerminate ->
-            writer.WritePropertyName("type")
-            writer.WriteValue("connection_terminate")
+            jobj.Add(JProperty("type", "connection_terminate"))
         | Start (id, payload) ->
-            writer.WritePropertyName("type")
-            writer.WriteValue("start")
-            writer.WritePropertyName("id")
-            writer.WriteValue(id)
-            writer.WritePropertyName("payload")
-            let settings = JsonSerializerSettings()
-            let queryConverter = GQLQueryConverter() :> JsonConverter
-            let optionConverter = OptionConverter() :> JsonConverter
-            settings.Converters <- [| optionConverter; queryConverter |]
-            settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
-            let json = JsonConvert.SerializeObject(payload, settings)
-            writer.WriteRaw(json)
+            jobj.Add(JProperty("type", "start"))
+            jobj.Add(JProperty("id", id))
+            jobj.Add(JProperty("payload", payload.ToJsonString()))
         | Stop id ->
-            writer.WritePropertyName("type")
-            writer.WriteValue("stop")
-            writer.WritePropertyName("id")
-            writer.WriteValue(id)
-        | ParseError _ -> raise <| InvalidOperationException("Can not serialize a parse error message.")
+            jobj.Add(JProperty("type", "stop"))
+            jobj.Add(JProperty("id", id))
+        jobj.WriteTo(writer)
     
     override __.ReadJson(reader, _, _, _) =
         let jobj = JObject.Load reader
@@ -158,33 +136,19 @@ and [<Sealed>] GQLClientMessageConverter() =
         | "connection_init" -> upcast ConnectionInit
         | "connection_terminate" -> upcast ConnectionTerminate
         | "start" ->
-            let id = tryGetJsonProperty jobj "id"
-            let payload = tryGetJsonProperty jobj "payload"
-            match id, payload with
-            | Some id, Some payload ->
-                try
-                    let settings = JsonSerializerSettings()
-                    let queryConverter = GQLQueryConverter() :> JsonConverter
-                    let optionConverter = OptionConverter() :> JsonConverter
-                    settings.Converters <- [| optionConverter; queryConverter |]
-                    settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
-                    let req = JsonConvert.DeserializeObject<GQLQuery>(payload, settings)
-                    upcast Start(id, req)
-                with e -> upcast ParseError(Some id, "Message parsing failed. " + e.Message)
-            | None, _ -> upcast ParseError(None, "Malformed GQL_START message, expected id field but found none.")
-            | _, None -> upcast ParseError(None, "Malformed GQL_START message, expected payload field but found none.")
+            let id = jobj.Property("id").Value.ToString()
+            let payload = jobj.Property("payload").Value.ToString()
+            upcast Start (id, GQLQuery.FromJsonString(payload))
         | "stop" ->
-            match tryGetJsonProperty jobj "id" with
-            | Some id -> upcast Stop(id)
-            | None -> upcast ParseError(None, "Malformed GQL_STOP message, expected id field but found none.")
-        | typ -> upcast ParseError(None, "Message Type " + typ + " is not supported.")
+            let id = jobj.Property("id").Value.ToString()
+            upcast Stop (id)
+        | t -> 
+            raise <| InvalidOperationException(sprintf "Message Type %s is not supported." t)
 
 and [<Sealed>] GQLServerMessageConverter() =
     inherit JsonConverter()
     
-    override __.CanRead = false
-    
-    override __.CanConvert(t) = t = typedefof<GQLServerMessage> || t.DeclaringType = typedefof<GQLServerMessage>
+    override __.CanConvert(t) = t = typeof<GQLServerMessage>
     
     override __.WriteJson(writer, value, _) =
         let value = value :?> GQLServerMessage
@@ -192,24 +156,48 @@ and [<Sealed>] GQLServerMessageConverter() =
         match value with
         | ConnectionAck ->
             jobj.Add(JProperty("type", "connection_ack"))
-        | ConnectionError(err) ->
+        | ConnectionError err ->
             let errObj = JObject()
             errObj.Add(JProperty("error", err))
             jobj.Add(JProperty("type", "connection_error"))
             jobj.Add(JProperty("payload", errObj))
-        | Error(id, err) ->
+        | Error (id, err) ->
             let errObj = JObject()
             errObj.Add(JProperty("error", err))
             jobj.Add(JProperty("type", "error"))
             jobj.Add(JProperty("payload", errObj))
             jobj.Add(JProperty("id", id))
-        | Data(id, result) ->
+        | Data (id, result) ->
             jobj.Add(JProperty("type", "data"))
             jobj.Add(JProperty("id", id))
             jobj.Add(JProperty("payload", JObject.FromObject(result)))
-        | Complete(id) ->
+        | Complete (id) ->
             jobj.Add(JProperty("type", "complete"))
             jobj.Add(JProperty("id", id))
         jobj.WriteTo(writer)
     
-    override __.ReadJson(_, _, _, _) = raise <| NotSupportedException()
+    override __.ReadJson(reader, _, _, _) =
+        let jobj = JObject.Load reader
+        let typ = jobj.Property("type").Value.ToString()
+        match typ with
+        | "connection_ack" -> upcast ConnectionAck
+        | "connection_error" ->
+            let payload = jobj.Property("payload").Value.ToString()
+            let errObj = JObject.Parse(payload)
+            let errMsg = errObj.Property("error").Value.ToString()
+            upcast ConnectionError errMsg
+        | "error" ->
+            let id = tryGetJsonProperty jobj "id"
+            let payload = jobj.Property("payload").Value.ToString()
+            let errObj = JObject.Parse(payload)
+            let errMsg = errObj.Property("error").Value.ToString()
+            upcast Error (id, errMsg)
+        | "data" ->
+            let id = jobj.Property("id").Value.ToString()
+            let payload = jobj.Property("payload").Value.ToString()
+            upcast Data (id, JsonConvert.DeserializeObject<IDictionary<string, obj>>(payload))
+        | "complete" ->
+            let id = jobj.Property("id").Value.ToString()
+            upcast Complete id
+        | t -> 
+            raise <| InvalidOperationException(sprintf "Message Type %s is not supported." t)

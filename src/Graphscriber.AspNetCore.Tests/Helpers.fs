@@ -7,34 +7,21 @@ open Graphscriber.AspNetCore
 open Expecto
 open System
 open System.Threading
-open System.Collections.Concurrent
 open System.Net.WebSockets
+open Microsoft.Extensions.Primitives
 
 [<AllowNullLiteral>]
 type GQLClientConnection(socket : WebSocket) =
     let socket = new GQLClientSocket(socket)
-    let receivedMessages = ConcurrentBag<GQLServerMessage>()
-    let mutable receiving = true
-    let mre = new ManualResetEvent(false)
-    let receiver =
-        async {
-             while receiving do
-                let! message = socket.ReceiveAsync() |> Async.AwaitTask
-                match message with
-                | Some m -> receivedMessages.Add(m); mre.Set() |> ignore
-                | None -> ()
-        }
-    do socket.ReceiveAsync() |> Async.AwaitTask |> Async.Ignore |> Async.RunSynchronously
     
     member __.SendMessage(message : GQLClientMessage) =
-        socket.SendAsync(message) |> Async.AwaitTask |> Async.RunSynchronously
-
-    member __.ReceivedMessages = receivedMessages |> Seq.map id
+        socket.SendAsync(message, CancellationToken.None) |> Async.AwaitTask |> Async.RunSynchronously
 
     member __.WaitMessage() = 
-        let success = TimeSpan.FromSeconds(float 30) |> mre.WaitOne
-        mre.Reset() |> ignore
-        success
+        use tokenSource = new CancellationTokenSource(30000)
+        socket.ReceiveAsync(tokenSource.Token) 
+        |> Async.AwaitTask 
+        |> Async.RunSynchronously
 
     member __.SocketCloseStatus = socket.CloseStatus
 
@@ -43,15 +30,12 @@ type GQLClientConnection(socket : WebSocket) =
     member __.SocketState = socket.State
 
     member __.Dispose() =
-        receiving <- false
-        Async.RunSynchronously receiver
-        mre.Dispose()
         socket.Dispose()
 
     interface IDisposable with
         member this.Dispose() = this.Dispose()
 
-let get (client : HttpClient) (uri : string) =
+let get (uri : string) (client : HttpClient) =
     client.GetAsync(uri) 
     |> Async.AwaitTask 
     |> Async.RunSynchronously
@@ -84,11 +68,6 @@ let equals expected actual =
 let contains element sequence =
     Expect.contains sequence element "Sequence does not contain expected element"
 
-let containsMessage message (connection : GQLClientConnection) =
-    if not (connection.WaitMessage())
-    then failwith "Timeout waiting for a message from the socket."
-    contains message connection.ReceivedMessages
-
 let stateEquals expected (connection : GQLClientConnection) =
     equals expected connection.SocketState
 
@@ -97,3 +76,26 @@ let closeStatusEquals expected (connection : GQLClientConnection) =
 
 let closeStatusDescriptionEquals expected (connection : GQLClientConnection) =
     equals expected connection.SocketCloseStatusDescription
+
+let sendMessage message (connection : GQLClientConnection) =
+    connection.SendMessage(message); connection
+
+let receiveMessage (connection : GQLClientConnection) =
+    try connection.WaitMessage()
+    with ex -> failwithf "Error while waiting for a message from the socket.\n%A" ex
+
+let waitMessage (connection : GQLClientConnection) =
+    receiveMessage connection |> ignore; connection
+
+let createServer () =
+    new TestServer(Program.createWebHostBuilder [||])
+
+let createHttpClient (server : TestServer) =
+    server.CreateClient()
+
+let createWebSocketClient (server : TestServer) =
+    server.CreateWebSocketClient()
+
+let setProtocol (protocol : string) (client : WebSocketClient) =
+    client.ConfigureRequest <- fun r -> r.Headers.Add("Sec-WebSocket-Protocol", StringValues(protocol))
+    client

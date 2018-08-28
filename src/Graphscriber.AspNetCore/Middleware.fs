@@ -12,8 +12,8 @@ type GQLWebSocketMiddleware<'Root>(next : RequestDelegate,
                                    socketFactory : WebSocket -> IGQLServerSocket) =
     member __.Invoke(ctx : HttpContext) =
         async {
-            match ctx.WebSockets.IsWebSocketRequest with
-            | true ->
+            if ctx.WebSockets.IsWebSocketRequest
+            then
                 let! socket = ctx.WebSockets.AcceptWebSocketAsync("graphql-ws") |> Async.AwaitTask
                 if not (ctx.WebSockets.WebSocketRequestedProtocols.Contains(socket.SubProtocol))
                 then
@@ -23,6 +23,6 @@ type GQLWebSocketMiddleware<'Root>(next : RequestDelegate,
                     use socket = socketFactory socket
                     let root = rootFactory socket
                     do! socketManager.StartSocket(socket, executor, root) |> Async.AwaitTask
-            | false ->
+            else
                 do! next.Invoke(ctx) |> Async.AwaitTask
         } |> Async.StartAsTask :> Task

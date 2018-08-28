@@ -2,11 +2,7 @@ namespace Graphscriber.AspNetCore
 
 open System
 open System.Text
-open Newtonsoft.Json
 open Newtonsoft.Json.Linq
-open Newtonsoft.Json.Serialization
-open System.Collections.Generic
-open System.Net.Sockets
 
 [<AutoOpen>]
 module internal Helpers =
@@ -34,9 +30,3 @@ module internal JsonHelpers =
         match jobj.Property(prop) with
         | null -> None
         | p -> Some(p.Value.ToString())
-
-    let jsonSerializerSettings (converters : JsonConverter seq) =
-        JsonSerializerSettings()
-        |> tee (fun s ->
-            s.Converters <- List<JsonConverter>(converters)
-            s.ContractResolver <- CamelCasePropertyNamesContractResolver())
