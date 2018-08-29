@@ -37,8 +37,9 @@ module internal WebSocketUtils =
 
 type IGQLSocket =
     inherit IDisposable
-    abstract member State : WebSocketState
+    abstract member CloseAsync : unit -> Task
     abstract member CloseAsync : CancellationToken -> Task
+    abstract member State : WebSocketState
     abstract member CloseStatus : WebSocketCloseStatus option
     abstract member CloseStatusDescription : string option
 
@@ -50,11 +51,15 @@ type IGQLServerSocket =
     abstract member Id : Guid
     abstract member SendAsync : GQLServerMessage * CancellationToken -> Task
     abstract member ReceiveAsync : CancellationToken -> Task<GQLClientMessage option>
+    abstract member SendAsync : GQLServerMessage -> Task
+    abstract member ReceiveAsync : unit -> Task<GQLClientMessage option>
 
 type IGQLClientSocket =
     inherit IGQLSocket
     abstract member SendAsync : GQLClientMessage * CancellationToken -> Task
     abstract member ReceiveAsync : CancellationToken -> Task<GQLServerMessage option>
+    abstract member SendAsync : GQLClientMessage -> Task
+    abstract member ReceiveAsync : unit -> Task<GQLServerMessage option>
 
 type [<Sealed>] GQLServerSocket (inner : WebSocket) =
     let subscriptions : IDictionary<string, IDisposable> = 
@@ -85,10 +90,19 @@ type [<Sealed>] GQLServerSocket (inner : WebSocket) =
     member __.ReceiveAsync(cancellationToken) =
         receiveMessage<GQLClientMessage> GQLClientMessage.SerializationSettings inner cancellationToken
 
+    member this.SendAsync(message: GQLServerMessage) =
+        this.SendAsync(message, CancellationToken.None)
+
+    member this.ReceiveAsync() =
+        this.ReceiveAsync(CancellationToken.None)
+
     member __.Dispose = inner.Dispose
 
     member __.CloseAsync(cancellationToken) = 
         inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cancellationToken)
+
+    member __.CloseAsync() = 
+        inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
 
     member __.State = inner.State
 
@@ -106,8 +120,11 @@ type [<Sealed>] GQLServerSocket (inner : WebSocket) =
         member this.Id = this.Id
         member this.SendAsync(message, ct) = this.SendAsync(message, ct)
         member this.ReceiveAsync(ct) = this.ReceiveAsync(ct)
+        member this.SendAsync(message) = this.SendAsync(message)
+        member this.ReceiveAsync() = this.ReceiveAsync()
         member this.State = this.State
         member this.CloseAsync(ct) = this.CloseAsync(ct)
+        member this.CloseAsync() = this.CloseAsync()
         member this.CloseStatus = this.CloseStatus
         member this.CloseStatusDescription = this.CloseStatusDescription
 
@@ -118,10 +135,19 @@ type [<Sealed>] GQLClientSocket (inner : WebSocket) =
     member __.ReceiveAsync(cancellationToken : CancellationToken) =
         receiveMessage<GQLServerMessage> GQLServerMessage.SerializationSettings inner cancellationToken
 
+    member this.SendAsync(message: GQLClientMessage) =
+        this.SendAsync(message, CancellationToken.None)
+
+    member this.ReceiveAsync() =
+        this.ReceiveAsync(CancellationToken.None)
+
     member __.Dispose = inner.Dispose
 
     member __.CloseAsync(cancellationToken) = 
         inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cancellationToken)
+
+    member __.CloseAsync() = 
+        inner.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None)
 
     member __.State = inner.State
 
@@ -135,8 +161,11 @@ type [<Sealed>] GQLClientSocket (inner : WebSocket) =
     interface IGQLClientSocket with
         member this.SendAsync(message, ct) = this.SendAsync(message, ct)
         member this.ReceiveAsync(ct) = this.ReceiveAsync(ct)
+        member this.SendAsync(message) = this.SendAsync(message)
+        member this.ReceiveAsync() = this.ReceiveAsync()
         member this.State = this.State
         member this.CloseAsync(ct) = this.CloseAsync(ct)
+        member this.CloseAsync() = this.CloseAsync()
         member this.CloseStatus = this.CloseStatus
         member this.CloseStatusDescription = this.CloseStatusDescription
 

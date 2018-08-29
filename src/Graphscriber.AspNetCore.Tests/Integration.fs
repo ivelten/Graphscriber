@@ -8,22 +8,21 @@ open System.Net.WebSockets
 
 let endpointTests server =
     testList "Endpoint tests" [
-        test "Healthcheck test" {
+        testCase "Healthcheck test" <| fun _ ->
             use client = createHttpClient server
             client
             |> get "/healthcheck"
             |> check [ 
                 statusCodeEquals HttpStatusCode.OK
                 contentEquals "Service is running." 
-            ] 
-        } 
+            ]
     ]
 
 let webSocketTests server =
     testList "WebSocket tests" [
-        test "Should not connect if not using expected protocol" {
+        testCase "Should not connect if not using expected protocol" <| fun _ ->
             let client = createWebSocketClient server
-            use connection = connect client
+            let connection = connect client
             connection
             |> waitMessage
             |> check [
@@ -31,19 +30,17 @@ let webSocketTests server =
                 closeStatusEquals (Some WebSocketCloseStatus.ProtocolError)
                 closeStatusDescriptionEquals (Some "Server only supports graphql-ws protocol.") 
             ] 
-        }
-        test "Should be able to connect if using expected protocol" {
+        testCase "Should be able to connect if using expected protocol" <| fun _ ->
             let client = createWebSocketClient server
-            use connection =
+            let connection =
                 client
                 |> setProtocol "graphql-ws"
                 |> connect
             connection
             |> stateEquals WebSocketState.Open 
-        }
-        test "Should be able to start a GQL connection" {
+        testCase "Should be able to start a GQL connection" <| fun _ ->
             let client = createWebSocketClient server
-            use connection =
+            let connection =
                 client
                 |> setProtocol "graphql-ws"
                 |> connect
@@ -51,7 +48,7 @@ let webSocketTests server =
             |> sendMessage ConnectionInit
             |> receiveMessage
             |> equals (Some ConnectionAck)
-        }
+        
     ]
 
 let runIntegrationTests config args server =

@@ -10,12 +10,11 @@ open System.Threading
 open System.Net.WebSockets
 open Microsoft.Extensions.Primitives
 
-[<AllowNullLiteral>]
 type GQLClientConnection(socket : WebSocket) =
     let socket = new GQLClientSocket(socket)
     
     member __.SendMessage(message : GQLClientMessage) =
-        socket.SendAsync(message, CancellationToken.None) |> Async.AwaitTask |> Async.RunSynchronously
+        socket.SendAsync(message) |> Async.AwaitTask |> Async.RunSynchronously
 
     member __.WaitMessage() = 
         use tokenSource = new CancellationTokenSource(30000)
@@ -28,12 +27,6 @@ type GQLClientConnection(socket : WebSocket) =
     member __.SocketCloseStatusDescription = socket.CloseStatusDescription
 
     member __.SocketState = socket.State
-
-    member __.Dispose() =
-        socket.Dispose()
-
-    interface IDisposable with
-        member this.Dispose() = this.Dispose()
 
 let get (uri : string) (client : HttpClient) =
     client.GetAsync(uri) 
