@@ -28,20 +28,31 @@ type Root =
 module Storage =
     let entries = ConcurrentBag<Entry>()
 
-    let getNextReminders limit =
+    let private normalize (date : DateTime) =
+        DateTime(date.Year, date.Month, date.Day, date.Hour, date.Minute, date.Second)
+
+    let private filterByReminderTime filter (entries : Entry seq) =
         entries
         |> Seq.filter (fun x ->
             match x with
             | Appointment a ->
                 match a.Reminder with
-                | Some r -> r.Time > DateTime.Now
+                | Some r -> filter r
                 | None -> false
-            | Reminder r -> r.Time > DateTime.Now)
+            | Reminder r -> filter r)
         |> Seq.sortBy (fun x ->
             match x with
             | Appointment a -> a.Reminder.Value.Time
             | Reminder r -> r.Time)
+
+    let getNextReminders limit =
+        entries
+        |> filterByReminderTime (fun r -> normalize r.Time > normalize DateTime.Now)
         |> Seq.truncate limit
+
+    let alarmReminders () =
+        entries
+        |> filterByReminderTime (fun r -> normalize r.Time = normalize DateTime.Now)
 
     let addReminder subject time =
         let r = { Id = System.Guid.NewGuid(); Subject = subject; Time = time }
@@ -64,6 +75,8 @@ module Storage =
         entries.Add(Appointment a); a
 
 module Schema =
+    open System.Threading.Tasks
+
     let ReminderType =
         Define.Object<Reminder>(
             name = "Reminder",
@@ -150,6 +163,16 @@ module Schema =
                     "incomingReminders", RootType, EntryType, "Subscribes to future reminders (including appointments with reminders).",
                     fun _ _ x -> Some x) ])
 
-    let instance = Schema(QueryType, MutationType, SubscriptionType)
+    let private config = SchemaConfig.Default
+
+    let instance = Schema(QueryType, MutationType, SubscriptionType, config)
 
     let executor = Executor(instance)
+
+    do 
+        async {
+            while true do
+                Storage.alarmReminders ()
+                |> Seq.iter (fun r -> config.SubscriptionProvider.Publish "incomingReminders" r)
+                do! Task.Delay(1000) |> Async.AwaitTask
+        } |> Async.StartAsTask |> ignore

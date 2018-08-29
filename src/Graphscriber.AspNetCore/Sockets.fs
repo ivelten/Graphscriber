@@ -220,7 +220,6 @@ type GQLServerSocketManager<'Root>() =
                     executor.AsyncExecute(payload.Query, root, payload.Variables)
                     |> Async.RunSynchronously
                     |> handle id
-                    do! Data (id, Dictionary<string, obj>()) |> sendMessage socket
                 | Some ConnectionTerminate ->
                     do! socket.CloseAsync(CancellationToken.None) |> Async.AwaitTask
                     disposeSocket socket

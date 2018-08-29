@@ -7,6 +7,7 @@ open Microsoft.FSharp.Reflection
 open System
 open Newtonsoft.Json.Linq
 open System.Collections.Generic
+open System.Linq
 
 type GQLClientMessage =
     | ConnectionInit
@@ -110,7 +111,7 @@ and [<Sealed>] GQLQueryConverter() =
 and [<Sealed>] GQLClientMessageConverter() =
     inherit JsonConverter()
 
-    override __.CanConvert(t) = t = typeof<GQLClientMessage>
+    override __.CanConvert(t) = t = typedefof<GQLClientMessage> || t.DeclaringType = typedefof<GQLClientMessage>
     
     override __.WriteJson(writer, obj, _) = 
         let msg = obj :?> GQLClientMessage
@@ -148,7 +149,7 @@ and [<Sealed>] GQLClientMessageConverter() =
 and [<Sealed>] GQLServerMessageConverter() =
     inherit JsonConverter()
     
-    override __.CanConvert(t) = t = typeof<GQLServerMessage>
+    override __.CanConvert(t) = t = typedefof<GQLServerMessage> || t.DeclaringType = typedefof<GQLServerMessage>
     
     override __.WriteJson(writer, value, _) =
         let value = value :?> GQLServerMessage
@@ -176,7 +177,28 @@ and [<Sealed>] GQLServerMessageConverter() =
             jobj.Add(JProperty("id", id))
         jobj.WriteTo(writer)
     
-    override __.ReadJson(reader, _, _, _) =
+    override __.ReadJson(reader, _, _, serializer) =
+        let format (payload : Output) : Output =
+            let rec helper (data : obj) : obj =
+                match data with
+                | :? JObject as jobj ->
+                    upcast (
+                        jobj.ToObject<Dictionary<string, obj>>(serializer)
+                        |> Seq.map (fun kval -> KeyValuePair<string, obj>(kval.Key, helper kval.Value))
+                        |> Array.ofSeq
+                        |> NameValueLookup
+                    )
+                | :? JArray as jarr ->
+                    upcast (
+                        jarr.ToObject<obj list>(serializer)
+                        |> List.map helper
+                    )
+                | _ -> data
+            let toOutput (seq : KeyValuePair<string, obj> seq) : Output =
+                upcast Enumerable.ToDictionary(seq, (fun x -> x.Key), fun x -> x.Value)
+            payload
+            |> Seq.map (fun kval -> KeyValuePair<string, obj>(kval.Key, helper kval.Value))
+            |> toOutput
         let jobj = JObject.Load reader
         let typ = jobj.Property("type").Value.ToString()
         match typ with
@@ -194,8 +216,8 @@ and [<Sealed>] GQLServerMessageConverter() =
             upcast Error (id, errMsg)
         | "data" ->
             let id = jobj.Property("id").Value.ToString()
-            let payload = jobj.Property("payload").Value.ToString()
-            upcast Data (id, JsonConvert.DeserializeObject<IDictionary<string, obj>>(payload))
+            let payload = jobj.Property("payload").Value.ToObject<Dictionary<string, obj>>(serializer)
+            upcast Data (id, format payload)
         | "complete" ->
             let id = jobj.Property("id").Value.ToString()
             upcast Complete id

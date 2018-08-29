@@ -9,7 +9,9 @@ open System
 open System.Threading
 open System.Net.WebSockets
 open Microsoft.Extensions.Primitives
+open FSharp.Data.GraphQL.Execution
 
+[<AllowNullLiteral>]
 type GQLClientConnection(socket : WebSocket) =
     let socket = new GQLClientSocket(socket)
     
@@ -92,3 +94,15 @@ let createWebSocketClient (server : TestServer) =
 let setProtocol (protocol : string) (client : WebSocketClient) =
     client.ConfigureRequest <- fun r -> r.Headers.Add("Sec-WebSocket-Protocol", StringValues(protocol))
     client
+
+let isSome (item : 'a option) =
+    Expect.isSome item "Expected option to have a value"; item.Value
+
+let isData expectedId expectedData (message : GQLServerMessage) =
+    match message with
+    | Data (id, payload) ->
+        Expect.equal id expectedId "Id returned from socket is not expected"
+        match payload.TryGetValue "data" with
+        | (true, data) -> Expect.equal data expectedData "Data returned from socket is not expected"
+        | _ -> failwith "Socket returned no data, a query result was expected"
+    | _ -> failwith "Expected data response from socket"
