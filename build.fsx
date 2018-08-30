@@ -7,7 +7,6 @@ nuget Fake.DotNet.Cli"
 open Fake.Core
 open Fake.DotNet
 open Fake.IO
-open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
 open Fake.Core.TargetOperators
 
@@ -18,8 +17,7 @@ Target.create "Clean" (fun _ ->
 )
 
 Target.create "Build" (fun _ ->
-    !! "src/**/*.*proj"
-    |> Seq.iter (DotNet.build id)
+    DotNet.build id "Graphscriber.sln"
 )
 
 Target.create "All" ignore
