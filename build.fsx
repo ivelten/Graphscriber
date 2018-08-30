@@ -1,6 +1,6 @@
 #r "paket:
 nuget Fake.Core.Target
-nuget Fake.DotNet.Cli"
+nuget Fake.DotNet.Cli //"
 
 #load ".fake/build.fsx/intellisense.fsx"
 
