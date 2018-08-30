@@ -1,5 +1,5 @@
-Expecto
+Newtonsoft.Json
 FSharp.Core
+Expecto
 Microsoft.NET.Test.Sdk
 Microsoft.AspNetCore.TestHost
-Newtonsoft.Json

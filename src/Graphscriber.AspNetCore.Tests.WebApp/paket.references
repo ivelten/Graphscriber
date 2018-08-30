@@ -1,4 +1,4 @@
-Microsoft.AspNetCore.App
 FSharp.Core
+Microsoft.AspNetCore.App
 Giraffe
 System.Reactive
