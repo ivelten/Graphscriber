@@ -1,6 +1,5 @@
-sudo: required
 language: csharp
-dotnet: 2.1.4
+dotnet: 2.1.401
 dist: trusty
 mono: none
 before_install:
