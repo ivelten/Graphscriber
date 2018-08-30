@@ -3,6 +3,6 @@ dotnet: 2.1.4
 dist: trusty
 mono: none
 before_install:
-  - chmod +x build.sh
+  - chmod +x fake.sh
 script:
   - ./fake.sh build
