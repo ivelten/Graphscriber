@@ -1,7 +1,6 @@
 language: csharp
 dotnet: 2.1.401
 dist: trusty
-mono: none
 before_install:
   - chmod +x fake.sh
 script:
