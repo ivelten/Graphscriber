@@ -17,13 +17,13 @@ Target.create "Clean" (fun _ ->
 )
 
 Target.create "Build" (fun _ ->
-    DotNet.build id "Graphscriber.sln"
+    "Graphscriber.sln"
+    |> DotNet.build (fun options -> 
+            { options with 
+                Configuration = DotNet.BuildConfiguration.Release })
 )
-
-Target.create "All" ignore
 
 "Clean"
   ==> "Build"
-  ==> "All"
 
-Target.runOrDefault "All"
+Target.runOrDefault "Build"
