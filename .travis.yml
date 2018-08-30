@@ -1,3 +1,4 @@
+sudo: required
 language: csharp
 dotnet: 2.1.401
 dist: trusty
