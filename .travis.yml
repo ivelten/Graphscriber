@@ -5,4 +5,4 @@ dist: trusty
 before_install:
   - chmod u+x fake.sh
 script:
-  - export FrameworkPathOverride=/usr/lib/mono/4.6.1-api/ && ./fake.sh Build
+  - export FrameworkPathOverride=/usr/lib/mono/4.6.1-api/ && ./fake.sh build
