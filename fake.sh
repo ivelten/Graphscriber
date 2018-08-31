@@ -17,6 +17,8 @@ realpath() {
   echo "$REALPATH"
 }
 
+curl https://curl.haxx.se/ca/cacert.pem > ~/cacert.pem && sudo cert-sync ~/cacert.pem
+
 TOOL_PATH=$(realpath .fake)
 FAKE="$TOOL_PATH"/fake
 
