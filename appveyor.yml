@@ -1,6 +1,6 @@
 init:
   - git config --global core.autocrlf input
 build_script:
-  - cmd: fake.cmd build
+  - cmd: fake.cmd run build.fsx
 test: off
 image: Visual Studio 2017
