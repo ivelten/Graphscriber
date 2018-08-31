@@ -16,14 +16,19 @@ Target.create "Clean" (fun _ ->
     |> Shell.cleanDirs 
 )
 
+Target.create "Restore" (fun _ ->
+    "Graphscriber.sln"
+    |> DotNet.restore id)
+
 Target.create "Build" (fun _ ->
     "Graphscriber.sln"
     |> DotNet.build (fun options -> 
-            { options with 
-                Configuration = DotNet.BuildConfiguration.Release })
+        { options with 
+            Configuration = DotNet.BuildConfiguration.Release })
 )
 
 "Clean"
+  ==> "Restore"
   ==> "Build"
 
 Target.runOrDefault "Build"
