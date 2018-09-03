@@ -37,8 +37,7 @@ let webSocketTests server =
             |> check [
                 stateEquals WebSocketState.CloseReceived
                 closeStatusEquals (Some WebSocketCloseStatus.ProtocolError)
-                closeStatusDescriptionEquals (Some "Server only supports graphql-ws protocol.")
-            ]
+                closeStatusDescriptionEquals (Some "Server only supports graphql-ws protocol.") ]
         }
         testSequenced <| testList "Connection tests" [
             test "Should be able to connect if using expected protocol" {
@@ -66,13 +65,14 @@ let webSocketTests server =
                 }"""
                 let payload = 
                     { Query = query
-                      Variables = Map.ofList [ 
-                        "subject", box "Buy coffee"
-                        "time", upcast buyCoffeeDate ] }
-                let expectedData = NameValueLookup.ofList [
-                       "addReminder", upcast NameValueLookup.ofList [
-                            "subject", upcast "Buy coffee"
-                            "time", upcast buyCoffeeDate ] ]
+                      Variables = Map.ofList 
+                        [ "subject", box "Buy coffee"
+                          "time", upcast buyCoffeeDate ] }
+                let expectedData = 
+                    NameValueLookup.ofList 
+                        [ "addReminder", upcast NameValueLookup.ofList 
+                            [ "subject", upcast "Buy coffee"
+                              "time", upcast buyCoffeeDate ] ]
                 connection
                 |> sendMessage (Start ("1", payload))
                 |> receiveMessage
@@ -93,20 +93,21 @@ let webSocketTests server =
                 }"""
                 let payload = 
                     { Query = query
-                      Variables = Map.ofList [ 
-                        "subject", box "Work's meeting"
-                        "location", upcast "Work's meeting room"
-                        "startTime", upcast workMeetingStartDate
-                        "endTime", upcast workMeetingEndDate
-                        "reminder", upcast workMeetingReminderDate ] }
-                let expectedData = NameValueLookup.ofList [
-                       "addAppointment", upcast NameValueLookup.ofList [
-                            "subject", box "Work's meeting"
-                            "location", upcast "Work's meeting room"
-                            "startTime", upcast workMeetingStartDate
-                            "endTime", upcast workMeetingEndDate
-                            "reminder", upcast NameValueLookup.ofList [ 
-                                "time", upcast workMeetingReminderDate ] ] ]
+                      Variables = Map.ofList 
+                        [ "subject", box "Work's meeting"
+                          "location", upcast "Work's meeting room"
+                          "startTime", upcast workMeetingStartDate
+                          "endTime", upcast workMeetingEndDate
+                          "reminder", upcast workMeetingReminderDate ] }
+                let expectedData = 
+                    NameValueLookup.ofList 
+                        [ "addAppointment", upcast NameValueLookup.ofList 
+                            [ "subject", box "Work's meeting"
+                              "location", upcast "Work's meeting room"
+                              "startTime", upcast workMeetingStartDate
+                              "endTime", upcast workMeetingEndDate
+                              "reminder", upcast NameValueLookup.ofList 
+                                [ "time", upcast workMeetingReminderDate ] ] ]
                 connection
                 |> sendMessage (Start ("2", payload))
                 |> receiveMessage
@@ -131,18 +132,19 @@ let webSocketTests server =
                         }
                     }
                 }"""
-                let expectedData = NameValueLookup.ofList [
-                    "incomingReminders", upcast [
-                            box <| NameValueLookup.ofList [
-                                "subject", upcast "Buy coffee"
-                                "time", upcast buyCoffeeDate ]
-                            upcast NameValueLookup.ofList [
-                                "subject", upcast "Work's meeting"
-                                "location", upcast "Work's meeting room"
-                                "startTime", upcast workMeetingStartDate
-                                "endTime", upcast workMeetingEndDate
-                                "reminder", upcast NameValueLookup.ofList [
-                                    "time", upcast workMeetingReminderDate ] ] ] ]
+                let expectedData = 
+                    NameValueLookup.ofList 
+                        [ "incomingReminders", upcast [
+                              box <| NameValueLookup.ofList [
+                                  "subject", upcast "Buy coffee"
+                                  "time", upcast buyCoffeeDate ]
+                              upcast NameValueLookup.ofList [
+                                  "subject", upcast "Work's meeting"
+                                  "location", upcast "Work's meeting room"
+                                  "startTime", upcast workMeetingStartDate
+                                  "endTime", upcast workMeetingEndDate
+                                  "reminder", upcast NameValueLookup.ofList [
+                                      "time", upcast workMeetingReminderDate ] ] ] ]
                 connection
                 |> sendMessage (Start ("3", { Query = query; Variables = Map.empty }))
                 |> receiveMessage
@@ -167,16 +169,18 @@ let webSocketTests server =
                         }
                     }
                 }"""
-                let expectedData1 = NameValueLookup.ofList [
-                    "subject", upcast "Buy coffee"
-                    "time", upcast buyCoffeeDate ]
-                let expectedData2 = NameValueLookup.ofList [
-                    "subject", upcast "Work's meeting"
-                    "location", upcast "Work's meeting room"
-                    "startTime", upcast workMeetingStartDate
-                    "endTime", upcast workMeetingEndDate
-                    "reminder", upcast NameValueLookup.ofList [
-                        "time", upcast workMeetingReminderDate ] ]
+                let expectedData1 = 
+                    NameValueLookup.ofList
+                        [ "subject", upcast "Buy coffee"
+                          "time", upcast buyCoffeeDate ]
+                let expectedData2 = 
+                    NameValueLookup.ofList
+                        [ "subject", upcast "Work's meeting"
+                          "location", upcast "Work's meeting room"
+                          "startTime", upcast workMeetingStartDate
+                          "endTime", upcast workMeetingEndDate
+                          "reminder", upcast NameValueLookup.ofList 
+                            [ "time", upcast workMeetingReminderDate ] ]
                 connection
                 |> sendMessage (Start ("4", { Query = query; Variables = Map.empty }))
                 |> receiveMessage
