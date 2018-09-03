@@ -1,6 +1,6 @@
 # Graphscriber
 
-Graphscriber is a middleware made for FSharp.Data.GraphQL that adds support for GraphQL over Web Socket specification in popular servers, such as ASP.NET Core applications.
+Graphscriber is a middleware made for [FSharp.Data.GraphQL](https://github.com/fsprojects/FSharp.Data.GraphQL) that adds support for GraphQL over Web Socket specification in popular servers, such as ASP.NET Core applications.
 
 | Windows | Linux |
 | :------ | :---- |
