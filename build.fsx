@@ -18,11 +18,16 @@ Target.create "Clean" (fun _ ->
     |> Shell.cleanDirs 
 )
 
+Target.create "Restore" (fun _ ->
+    "Graphscriber.sln"
+    |> DotNet.restore id)
+
 Target.create "Build" (fun _ ->
     "Graphscriber.sln"
-    |> DotNet.build (fun options -> 
+    |> DotNet.build (fun options ->
         { options with 
-            Configuration = DotNet.BuildConfiguration.Release }))
+            Configuration = DotNet.BuildConfiguration.Release
+            Common = { options.Common with CustomParams = Some "--no-restore" } }))
 
 Target.create "Test" (fun _ ->
     !! "src/**/bin/Release/*/*Tests.dll"
@@ -31,6 +36,7 @@ Target.create "Test" (fun _ ->
 Target.create "All" ignore
 
 "Clean"
+  ==> "Restore"
   ==> "Build"
   ==> "Test"
   ==> "All"
