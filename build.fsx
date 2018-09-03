@@ -1,7 +1,8 @@
 #r "paket:
 nuget Fake.Core.Target
 nuget Fake.DotNet.Cli
-nuget Fake.DotNet.Testing.Expecto //"
+nuget Fake.DotNet.Testing.Expecto
+nuget Fake.DotNet.Paket //"
 
 #load ".fake/build.fsx/intellisense.fsx"
 
@@ -19,15 +20,19 @@ Target.create "Clean" (fun _ ->
 )
 
 Target.create "Restore" (fun _ ->
-    "Graphscriber.sln"
-    |> DotNet.restore id)
+    
+    !! "src/**/*.fsproj"
+    ++ "src/**/*.csproj"
+    |> Seq.iter (DotNet.restore id))
 
 Target.create "Build" (fun _ ->
-    "Graphscriber.sln"
-    |> DotNet.build (fun options ->
+    !! "src/**/*.fsproj"
+    ++ "src/**/*.csproj"
+    |> Seq.iter (DotNet.build (fun options ->
         { options with 
             Configuration = DotNet.BuildConfiguration.Release
-            Common = { options.Common with CustomParams = Some "--no-restore" } }))
+            Common = { options.Common with 
+                        CustomParams = Some "--no-restore" } })))
 
 Target.create "Test" (fun _ ->
     !! "src/**/bin/Release/*/*Tests.dll"
