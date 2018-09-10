@@ -191,6 +191,19 @@ let webSocketTests server =
                 |> isSome
                 |> isData "4" expectedData2
             }
+            test "Should be able to unsubscribe" {
+                connection
+                |> sendMessage (Stop "4")
+                |> receiveMessage
+                |> isSome
+                |> equals (Complete "4")
+            }
+            test "Should be able to end connection" {
+                connection
+                |> sendMessage (ConnectionTerminate)
+                |> receiveMessage
+                |> isNone
+            }
         ]
     ]
 

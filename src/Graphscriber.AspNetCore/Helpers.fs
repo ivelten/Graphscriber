@@ -1,6 +1,7 @@
 namespace Graphscriber.AspNetCore
 
 open System
+open System.Threading.Tasks
 open System.Text
 open Newtonsoft.Json.Linq
 
@@ -30,3 +31,17 @@ module internal JsonHelpers =
         match jobj.Property(prop) with
         | null -> None
         | p -> Some(p.Value.ToString())
+
+[<AutoOpen>]
+module internal TaskHelpers =
+    let continueWithResult (continuation : 'T -> 'U) (task : Task<'T>) =
+        task.ContinueWith(fun (t : Task<'T>) -> continuation t.Result)
+
+    let continueWith (continuation : unit -> 'T) (task : Task) =
+            task.ContinueWith(fun (t : Task) -> continuation ())
+
+    let ignoreResult (task : Task<'T>) =
+        task :> Task
+
+    let wait (task : Task) =
+        task.Wait()
