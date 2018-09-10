@@ -96,7 +96,10 @@ let setProtocol (protocol : string) (client : WebSocketClient) =
     client
 
 let isSome (item : 'a option) =
-    Expect.isSome item "Expected option to have a value"; item.Value
+    Expect.isSome item (sprintf "Expected option to be Some (%A)" item); item.Value
+
+let isNone (item: 'a option) =
+    Expect.isNone item "Expected option to be None"
 
 let isData expectedId expectedData (message : GQLServerMessage) =
     match message with
