@@ -220,7 +220,7 @@ type GQLServerSocketManager<'Root>() =
                         |> continueWith (fun _ ->
                             disposeSocket socket
                             loop <- false)
-                        |> wait // We wait until the socket is disposed, so the loop can terminate after that
+                        |> wait // We should wait until the socket is disposed, so the loop can terminate after that
                     | Some (Stop id) ->
                         socket.Unsubscribe(id)
                         Complete id 
