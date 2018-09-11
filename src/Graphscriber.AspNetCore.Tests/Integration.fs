@@ -7,7 +7,6 @@ open System.Net
 open System.Net.WebSockets
 open FSharp.Data.GraphQL.Execution
 open System
-open Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
 
 let endpointTests server =
     testList "Endpoint tests" [
