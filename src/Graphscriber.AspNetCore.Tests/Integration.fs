@@ -30,7 +30,7 @@ let workMeetingReminderDate = DateTime.Now.AddSeconds(float 5)
 
 let webSocketTests server =
     testList "WebSocket tests" [
-        test "Should not connect if not using expected protocol" {
+        test "Should not be able to open a socket if not using expected protocol" {
             let client = createWebSocketClient server
             let connection = connect client
             connection
@@ -41,7 +41,7 @@ let webSocketTests server =
                 closeStatusDescriptionEquals (Some "Server only supports graphql-ws protocol.") ]
         }
         testSequenced <| testList "Connection tests" [
-            test "Should be able to connect if using expected protocol" {
+            test "Should be able to open a socket if using expected protocol" {
                 let client = createWebSocketClient server
                 connection <-
                     client
@@ -50,9 +50,68 @@ let webSocketTests server =
                 connection
                 |> stateEquals WebSocketState.Open
             }
-            test "Should be able to start a GQL connection" {
+            test "Should reject any start operation if no GQL connection was made" {
+                let query = """query GetIncomingReminders {
+                    incomingReminders {
+                        ... on Reminder {
+                            subject
+                            time
+                        }
+                        ... on Appointment {
+                            subject
+                            location
+                            startTime
+                            endTime
+                            reminder {
+                                time
+                            }
+                        }
+                    }
+                }"""
+                connection
+                |> sendMessage (Start ("0", { Query = query; Variables = Map.empty }))
+                |> receiveMessage
+                |> isSome
+                |> equals (Error (Some "0", "A connection has not been started. Expected a GQL_CONNECTION_INIT before this operation."))
+            }
+            test "Should reject any connection terminate if no GQL connection was made" {
+                connection
+                |> sendMessage ConnectionTerminate
+                |> receiveMessage
+                |> isSome
+                |> equals (Error (None, "A connection has not been started. Expected a GQL_CONNECTION_INIT before this operation."))
+            }
+            test "Should reject any stop operation if no GQL connection was made" {
+                connection
+                |> sendMessage (Stop "0")
+                |> receiveMessage
+                |> isSome
+                |> equals (Error (Some "0", "A connection has not been started. Expected a GQL_CONNECTION_INIT before this operation."))
+            }
+            test "Should reject a GQL connection when no parameters are sent" {
                 connection
                 |> sendMessage (ConnectionInit { ConnectionParams = None })
+                |> receiveMessage
+                |> isSome
+                |> equals (ConnectionError "Expected connection parameters, but none was sent.")
+            }
+            test "Should reject a GQL connection when no token is sent" {
+                connection
+                |> sendMessage (ConnectionInit { ConnectionParams = Some (Map.empty) })
+                |> receiveMessage
+                |> isSome
+                |> equals (ConnectionError "Expected a token connection parameter, but none was sent.")
+            }
+            test "Should reject a GQL connection when an invalid token parameter is sent" {
+                connection
+                |> sendMessage (ConnectionInit { ConnectionParams = Some (Map.ofList [ "token", upcast "" ]) })
+                |> receiveMessage
+                |> isSome
+                |> equals (ConnectionError "Invalid connection token parameter.")
+            }
+            test "Should be able to start a GQL connection when a valid token parameter is sent" {
+                connection
+                |> sendMessage (ConnectionInit { ConnectionParams = Some (Map.ofList [ "token", upcast "f1ec4251-831e-4889-83dd-99d928e13778" ]) })
                 |> receiveMessage
                 |> isSome
                 |> equals ConnectionAck

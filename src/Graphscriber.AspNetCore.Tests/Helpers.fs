@@ -83,7 +83,7 @@ let waitMessage (connection : GQLClientConnection) =
     receiveMessage connection |> ignore; connection
 
 let createServer () =
-    new TestServer(Program.createWebHostBuilder [||])
+    new TestServer(Program.createWebHostBuilder<TestStartup> [||])
 
 let createHttpClient (server : TestServer) =
     server.CreateClient()

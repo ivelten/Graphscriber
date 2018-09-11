@@ -185,7 +185,7 @@ and [<Sealed>] GQLServerMessageConverter() =
             errObj.Add(JProperty("error", err))
             jobj.Add(JProperty("type", "error"))
             jobj.Add(JProperty("payload", errObj))
-            jobj.Add(JProperty("id", id))
+            id |> Option.iter (fun id -> jobj.Add(JProperty("id", id)))
         | Data (id, result) ->
             jobj.Add(JProperty("type", "data"))
             jobj.Add(JProperty("id", id))
