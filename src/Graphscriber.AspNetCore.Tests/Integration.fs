@@ -51,7 +51,7 @@ let webSocketTests server =
             }
             test "Should be able to start a GQL connection" {
                 connection
-                |> sendMessage ConnectionInit
+                |> sendMessage (ConnectionInit { ConnectionParams = Map.empty } )
                 |> receiveMessage
                 |> isSome
                 |> equals ConnectionAck

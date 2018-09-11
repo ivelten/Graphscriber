@@ -207,7 +207,8 @@ type GQLServerSocketManager<'Root>() =
                 |> receiveMessage
                 |> continueWithResult (fun message ->
                     match message with
-                    | Some ConnectionInit ->
+                    // TODO: treat payload
+                    | Some (ConnectionInit payload) ->
                         sendMessage socket ConnectionAck
                         |> ignore
                     | Some (Start (id, payload)) ->

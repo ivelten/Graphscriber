@@ -10,7 +10,7 @@ open System.Collections.Generic
 open System.Linq
 
 type GQLClientMessage =
-    | ConnectionInit
+    | ConnectionInit of payload : GQLInitOptions
     | ConnectionTerminate
     | Start of id : string * payload : GQLQuery
     | Stop of id : string
@@ -59,6 +59,20 @@ and GQLQuery =
     
     static member FromJsonString(json : string) =
         JsonConvert.DeserializeObject<GQLQuery>(json, GQLQuery.SerializationSettings)
+
+and GQLInitOptions =
+    { ConnectionParams : Map<string, obj> }
+
+    static member SerializationSettings =
+        JsonSerializerSettings(
+            Converters = [| OptionConverter() |],
+            ContractResolver = CamelCasePropertyNamesContractResolver())
+
+    member this.ToJsonString() =
+        JsonConvert.SerializeObject(this, GQLInitOptions.SerializationSettings)
+    
+    static member FromJsonString(json : string) =
+        JsonConvert.DeserializeObject<GQLInitOptions>(json, GQLInitOptions.SerializationSettings)
 
 and [<Sealed>] OptionConverter() =
     inherit JsonConverter()
@@ -117,8 +131,9 @@ and [<Sealed>] GQLClientMessageConverter() =
         let msg = obj :?> GQLClientMessage
         let jobj = JObject()
         match msg with
-        | ConnectionInit ->
+        | ConnectionInit payload ->
             jobj.Add(JProperty("type", "connection_init"))
+            jobj.Add(JProperty("payload", payload.ToJsonString()))
         | ConnectionTerminate ->
             jobj.Add(JProperty("type", "connection_terminate"))
         | Start (id, payload) ->
@@ -134,7 +149,9 @@ and [<Sealed>] GQLClientMessageConverter() =
         let jobj = JObject.Load reader
         let typ = jobj.Property("type").Value.ToString()
         match typ with
-        | "connection_init" -> upcast ConnectionInit
+        | "connection_init" -> 
+            let payload = jobj.Property("payload").Value.ToString()
+            upcast ConnectionInit (GQLInitOptions.FromJsonString(payload))
         | "connection_terminate" -> upcast ConnectionTerminate
         | "start" ->
             let id = jobj.Property("id").Value.ToString()
