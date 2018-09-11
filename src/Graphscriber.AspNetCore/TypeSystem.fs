@@ -8,6 +8,7 @@ open System
 open Newtonsoft.Json.Linq
 open System.Collections.Generic
 open System.Linq
+open Newtonsoft.Json.Linq
 
 type GQLClientMessage =
     | ConnectionInit of payload : GQLInitOptions
@@ -61,7 +62,7 @@ and GQLQuery =
         JsonConvert.DeserializeObject<GQLQuery>(json, GQLQuery.SerializationSettings)
 
 and GQLInitOptions =
-    { ConnectionParams : Map<string, obj> }
+    { ConnectionParams : Map<string, obj> option }
 
     static member SerializationSettings =
         JsonSerializerSettings(

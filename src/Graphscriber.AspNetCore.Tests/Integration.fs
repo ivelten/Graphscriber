@@ -7,6 +7,7 @@ open System.Net
 open System.Net.WebSockets
 open FSharp.Data.GraphQL.Execution
 open System
+open Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http
 
 let endpointTests server =
     testList "Endpoint tests" [
@@ -51,7 +52,7 @@ let webSocketTests server =
             }
             test "Should be able to start a GQL connection" {
                 connection
-                |> sendMessage (ConnectionInit { ConnectionParams = Map.empty } )
+                |> sendMessage (ConnectionInit { ConnectionParams = None })
                 |> receiveMessage
                 |> isSome
                 |> equals ConnectionAck

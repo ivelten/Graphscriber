@@ -162,12 +162,17 @@ type [<Sealed>] GQLClientSocket (inner : WebSocket) =
         member this.CloseStatus = this.CloseStatus
         member this.CloseStatusDescription = this.CloseStatusDescription
 
+type GQLConnectionResult =
+    | Accept
+    | Reject of string
+
 [<AllowNullLiteral>]
 type IGQLServerSocketManager<'Root> =
+    abstract member ConnectionHandler : Map<string, obj> option -> GQLConnectionResult
     abstract member StartSocket : IGQLServerSocket * Executor<'Root> * 'Root -> unit
 
 [<AllowNullLiteral>]
-type GQLServerSocketManager<'Root>() =
+type GQLServerSocketManager<'Root>(connectionHandler : Map<string, obj> option -> GQLConnectionResult) =
     let sockets : IDictionary<Guid, IGQLServerSocket> = 
         upcast ConcurrentDictionary<Guid, IGQLServerSocket>()
 
@@ -200,33 +205,54 @@ type GQLServerSocketManager<'Root>() =
                 socket.Subscribe(id, unsubscriber)
             | Direct (data, _) ->
                 send id data
+        let connectionExpected id =
+            Error (id, "A connection has not been started. Expected a GQL_CONNECTION_INIT before this operation.")
         try
+            let mutable connected = false
             let mutable loop = true
             while loop do
                 socket 
                 |> receiveMessage
                 |> continueWithResult (fun message ->
                     match message with
-                    // TODO: treat payload
                     | Some (ConnectionInit payload) ->
-                        sendMessage socket ConnectionAck
-                        |> ignore
+                        match connectionHandler(payload.ConnectionParams) with
+                        | Accept -> 
+                            connected <- true
+                            sendMessage socket ConnectionAck |> wait // We should wait the client to receive our Ack, so next requests will be accepted
+                        | Reject msg -> 
+                            sendMessage socket (ConnectionError msg) |> ignore
                     | Some (Start (id, payload)) ->
-                        executor.AsyncExecute(payload.Query, root, payload.Variables)
-                        |> Async.StartAsTask
-                        |> continueWithResult (handle id)
-                        |> ignore
+                        if connected
+                        then
+                            executor.AsyncExecute(payload.Query, root, payload.Variables)
+                            |> Async.StartAsTask
+                            |> continueWithResult (handle id)
+                            |> ignore
+                        else
+                            sendMessage socket (connectionExpected (Some id))
+                            |> ignore
                     | Some ConnectionTerminate ->
-                        socket.CloseAsync(CancellationToken.None)
-                        |> continueWith (fun _ ->
-                            disposeSocket socket
-                            loop <- false)
-                        |> wait // We should wait until the socket is disposed, so the loop can terminate after that
+                        if connected
+                        then
+                            socket.CloseAsync(CancellationToken.None)
+                            |> continueWith (fun _ ->
+                                disposeSocket socket
+                                loop <- false)
+                            |> wait // We should wait until the socket is disposed, so the loop can terminate after that
+                        else
+                            sendMessage socket (connectionExpected None)
+                            |> ignore
                     | Some (Stop id) ->
-                        socket.Unsubscribe(id)
-                        Complete id 
-                        |> sendMessage socket
-                        |> ignore
+                        if connected
+                        then
+                            socket.Unsubscribe(id)
+                            Complete id
+                            |> sendMessage socket
+                            |> ignore
+                        else
+                            sendMessage socket (connectionExpected (Some id))
+                            |> ignore
                     | None -> ())
                 |> wait // Every loop should wait at least the message to be received, or the socket to be closed
         with
@@ -237,5 +263,8 @@ type GQLServerSocketManager<'Root>() =
         sockets.Add(socket.Id, socket)
         handleMessages executor root socket
 
+    member __.ConnectionHandler = connectionHandler
+
     interface IGQLServerSocketManager<'Root> with
+        member this.ConnectionHandler(connectionParams) = this.ConnectionHandler(connectionParams)
         member this.StartSocket(socket, executor, root) = this.StartSocket(socket, executor, root)
