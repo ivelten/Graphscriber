@@ -1,0 +1,19 @@
+type project
+id Graphscriber.AspNetCore
+authors Ismael Carlos Velten
+projectUrl https://github.com/ivelten/Graphscriber
+licenseUrl https://github.com/ivelten/Graphscriber/blob/master/LICENSE.txt
+requireLicenseAcceptance false
+copyright Copyright (c) 2016 Bazinga Technologies Inc
+tags
+    FSharp GraphQL AspNetCore AspNet Sockets
+summary
+    FSharp.Data.GraphQL middleware for GraphQL over Web Socket specification
+description
+    Graphscriber is a middleware made for FSharp.Data.GraphQL that adds support for GraphQL over Web Socket specification in popular servers, such as ASP.NET Core applications.
+dependencies
+    FSharp.Core >= LOCKEDVERSION
+    FSharp.Data.GraphQL.Server >= LOCKEDVERSION
+    Newtonsoft.Json >= LOCKEDVERSION
+    Microsoft.AspNetCore.Http >= LOCKEDVERSION
+    Microsoft.AspNetCore.WebSockets >= LOCKEDVERSION
