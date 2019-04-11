@@ -8,15 +8,15 @@ module Program =
 
     let [<Literal>] BaseAddress = "localhost:8084"
 
-    let createWebHostBuilder args =
+    let createWebHostBuilder<'Startup  when 'Startup : not struct> args =
         WebHost
             .CreateDefaultBuilder(args)
-            .UseStartup<Startup>()
+            .UseStartup<'Startup>()
             .UseUrls(sprintf "http://%s" BaseAddress)
 
     [<EntryPoint>]
     let main args =
-        createWebHostBuilder(args)
+        createWebHostBuilder<Startup>(args)
             .Build()
             .Run()
         exitCode

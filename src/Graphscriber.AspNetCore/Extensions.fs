@@ -42,5 +42,6 @@ module Extensions =
                     socketFactoryOrDefault socketFactory)
 
     type IServiceCollection with
-        member this.AddGQLServerSocketManager<'Root>() =
-            this.AddSingleton<IGQLServerSocketManager<'Root>>(GQLServerSocketManager<'Root>())
+        member this.AddGQLServerSocketManager<'Root>(?connectionHandler : Map<string, obj> option -> GQLConnectionResult) =
+            let connectionHandler = defaultArg connectionHandler (fun _ -> Accept)
+            this.AddSingleton<IGQLServerSocketManager<'Root>>(GQLServerSocketManager<'Root>(connectionHandler))

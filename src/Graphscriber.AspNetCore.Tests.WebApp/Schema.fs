@@ -170,9 +170,9 @@ module Schema =
     let executor = Executor(instance)
 
     do 
-        async {
+        Task.Factory.StartNew(fun _ ->
             while true do
                 Storage.alarmReminders ()
                 |> Seq.iter (fun r -> config.SubscriptionProvider.Publish "incomingReminders" r)
-                do! Task.Delay(1000) |> Async.AwaitTask
-        } |> Async.StartAsTask |> ignore
+                Task.Delay(1000).Wait())
+        |> ignore
