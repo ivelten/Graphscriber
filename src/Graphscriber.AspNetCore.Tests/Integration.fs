@@ -229,17 +229,19 @@ let webSocketTests server =
                     }
                 }"""
                 let expectedData1 = 
-                    NameValueLookup.ofList
-                        [ "subject", upcast "Buy coffee"
-                          "time", upcast buyCoffeeDate ]
+                    NameValueLookup.ofList 
+                        [ "incomingReminders", upcast NameValueLookup.ofList 
+                            [ "subject", upcast "Buy coffee"
+                              "time", upcast buyCoffeeDate ] ]
                 let expectedData2 = 
                     NameValueLookup.ofList
-                        [ "subject", upcast "Work's meeting"
-                          "location", upcast "Work's meeting room"
-                          "startTime", upcast workMeetingStartDate
-                          "endTime", upcast workMeetingEndDate
-                          "reminder", upcast NameValueLookup.ofList 
-                            [ "time", upcast workMeetingReminderDate ] ]
+                        [ "incomingReminders", upcast NameValueLookup.ofList
+                            [ "subject", upcast "Work's meeting"
+                              "location", upcast "Work's meeting room"
+                              "startTime", upcast workMeetingStartDate
+                              "endTime", upcast workMeetingEndDate
+                              "reminder", upcast NameValueLookup.ofList 
+                                [ "time", upcast workMeetingReminderDate ] ] ]
                 connection
                 |> sendMessage (Start ("4", { Query = query; Variables = Map.empty }))
                 |> receiveMessage
