@@ -6,6 +6,11 @@ nuget Fake.DotNet.Paket //"
 
 #load ".fake/build.fsx/intellisense.fsx"
 
+#if !FAKE
+  #r "netstandard"
+  #r "Facades/netstandard"
+#endif
+
 open Fake.Core
 open Fake.DotNet
 open Fake.DotNet.Testing
@@ -20,7 +25,6 @@ Target.create "Clean" (fun _ ->
 )
 
 Target.create "Restore" (fun _ ->
-    
     !! "src/**/*.fsproj"
     ++ "src/**/*.csproj"
     |> Seq.iter (DotNet.restore id))
