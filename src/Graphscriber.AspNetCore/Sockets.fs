@@ -13,27 +13,20 @@ open FSharp.Data.GraphQL.Execution
 [<AutoOpen>]
 module internal WebSocketUtils =
     let sendMessage message (settings : JsonSerializerSettings) (socket : WebSocket) (ct : CancellationToken) =
-        async {
-            let json = JsonConvert.SerializeObject(message, settings)
-            let buffer = utf8Bytes json
-            let segment = ArraySegment<byte>(buffer)
-            do! socket.SendAsync(segment, WebSocketMessageType.Text, true, ct) |> Async.AwaitTask
-        } |> Async.StartAsTask :> Task
+        let json = JsonConvert.SerializeObject(message, settings)
+        let buffer = utf8Bytes json
+        let segment = ArraySegment<byte>(buffer)
+        socket.SendAsync(segment, WebSocketMessageType.Text, true, ct)
 
     let receiveMessage<'T> (settings : JsonSerializerSettings) (socket : WebSocket) (ct : CancellationToken) =
-        async {
-            let buffer = Array.zeroCreate 4096
-            let segment = ArraySegment<byte>(buffer)
-            do! socket.ReceiveAsync(segment, ct)
-                |> Async.AwaitTask
-                |> Async.Ignore
+        let buffer = Array.zeroCreate 4096
+        let segment = ArraySegment<byte>(buffer)
+        socket.ReceiveAsync(segment, ct)
+        |> continueWithResult (fun _ ->
             let message = utf8String buffer
             if isNullOrWhiteSpace message
-            then
-                return None
-            else
-                return JsonConvert.DeserializeObject<'T>(message, settings) |> Some
-        } |> Async.StartAsTask
+            then None
+            else JsonConvert.DeserializeObject<'T>(message, settings) |> Some)
 
 type IGQLSocket =
     inherit IDisposable
@@ -169,12 +162,17 @@ type [<Sealed>] GQLClientSocket (inner : WebSocket) =
         member this.CloseStatus = this.CloseStatus
         member this.CloseStatusDescription = this.CloseStatusDescription
 
-[<AllowNullLiteral>]
-type IGQLServerSocketManager<'Root> =
-    abstract member StartSocket : IGQLServerSocket * Executor<'Root> * 'Root -> Task
+type GQLConnectionResult =
+    | Accept
+    | Reject of string
 
 [<AllowNullLiteral>]
-type GQLServerSocketManager<'Root>() =
+type IGQLServerSocketManager<'Root> =
+    abstract member ConnectionHandler : Map<string, obj> option -> GQLConnectionResult
+    abstract member StartSocket : IGQLServerSocket * Executor<'Root> * 'Root -> unit
+
+[<AllowNullLiteral>]
+type GQLServerSocketManager<'Root>(connectionHandler : Map<string, obj> option -> GQLConnectionResult) =
     let sockets : IDictionary<Guid, IGQLServerSocket> = 
         upcast ConcurrentDictionary<Guid, IGQLServerSocket>()
 
@@ -183,58 +181,90 @@ type GQLServerSocketManager<'Root>() =
         socket.Dispose()
 
     let sendMessage (socket : IGQLServerSocket) (message : GQLServerMessage) = 
-        async {
-            if socket.State = WebSocketState.Open then
-                do! socket.SendAsync(message, CancellationToken.None) |> Async.AwaitTask
-            else
-                disposeSocket socket
-        }
+        if socket.State = WebSocketState.Open then
+            socket.SendAsync(message, CancellationToken.None)
+        else
+            upcast Task.Factory.StartNew(fun _ -> disposeSocket socket)
 
     let receiveMessage (socket : IGQLServerSocket) =
-        socket.ReceiveAsync(CancellationToken.None) |> Async.AwaitTask
+        socket.ReceiveAsync(CancellationToken.None)
 
-    let handleMessages (executor : Executor<'Root>) (root : 'Root) (socket : IGQLServerSocket) = async {
+    let handleMessages (executor : Executor<'Root>) (root : 'Root) (socket : IGQLServerSocket) =
         let send id output =
             Data (id, output)
             |> sendMessage socket
-            |> Async.RunSynchronously
+            |> ignore
         let handle id =
             function
             | Stream output ->
-                let unsubscriber = output |> Observable.subscribe (fun o -> send id o)
+                let unsubscriber = output |> Observable.subscribe (send id)
                 socket.Subscribe(id, unsubscriber)
             | Deferred (data, _, output) ->
                 send id data
-                let unsubscriber = output |> Observable.subscribe (fun o -> send id o)
+                let unsubscriber = output |> Observable.subscribe (send id)
                 socket.Subscribe(id, unsubscriber)
             | Direct (data, _) ->
                 send id data
+        let connectionExpected id =
+            Error (id, "A connection has not been started. Expected a GQL_CONNECTION_INIT before this operation.")
         try
+            let mutable connected = false
             let mutable loop = true
             while loop do
-                let! message = socket |> receiveMessage
-                match message with
-                | Some ConnectionInit ->
-                    do! sendMessage socket ConnectionAck
-                | Some (Start (id, payload)) ->
-                    executor.AsyncExecute(payload.Query, root, payload.Variables)
-                    |> Async.RunSynchronously
-                    |> handle id
-                | Some ConnectionTerminate ->
-                    do! socket.CloseAsync(CancellationToken.None) |> Async.AwaitTask
-                    disposeSocket socket
-                    loop <- false
-                | Some (Stop id) ->
-                    socket.Unsubscribe(id)
-                    do! Complete id |> sendMessage socket
-                | None -> ()
+                socket 
+                |> receiveMessage
+                |> continueWithResult (fun message ->
+                    match message with
+                    | Some (ConnectionInit payload) ->
+                        match connectionHandler(payload.ConnectionParams) with
+                        | Accept -> 
+                            connected <- true
+                            sendMessage socket ConnectionAck |> wait // We should wait the client to receive our Ack, so next requests will be accepted
+                        | Reject msg -> 
+                            sendMessage socket (ConnectionError msg) |> ignore
+                    | Some (Start (id, payload)) ->
+                        if connected
+                        then
+                            executor.AsyncExecute(payload.Query, root, payload.Variables)
+                            |> Async.StartAsTask
+                            |> continueWithResult (handle id)
+                            |> ignore
+                        else
+                            sendMessage socket (connectionExpected (Some id))
+                            |> ignore
+                    | Some ConnectionTerminate ->
+                        if connected
+                        then
+                            socket.CloseAsync(CancellationToken.None)
+                            |> continueWith (fun _ ->
+                                disposeSocket socket
+                                loop <- false)
+                            |> wait // We should wait until the socket is disposed, so the loop can terminate after that
+                        else
+                            sendMessage socket (connectionExpected None)
+                            |> ignore
+                    | Some (Stop id) ->
+                        if connected
+                        then
+                            socket.Unsubscribe(id)
+                            Complete id
+                            |> sendMessage socket
+                            |> ignore
+                        else
+                            sendMessage socket (connectionExpected (Some id))
+                            |> ignore
+                    | None -> ())
+                |> wait // Every loop should wait at least the message to be received, or the socket to be closed
         with
-        | _ -> disposeSocket socket;
-    }
+        | _ -> disposeSocket socket
+
 
     member __.StartSocket(socket : IGQLServerSocket, executor : Executor<'Root>, root : 'Root) =
         sockets.Add(socket.Id, socket)
-        handleMessages executor root socket |> Async.StartAsTask :> Task
+        handleMessages executor root socket
+
+    member __.ConnectionHandler = connectionHandler
 
     interface IGQLServerSocketManager<'Root> with
+        member this.ConnectionHandler(connectionParams) = this.ConnectionHandler(connectionParams)
         member this.StartSocket(socket, executor, root) = this.StartSocket(socket, executor, root)

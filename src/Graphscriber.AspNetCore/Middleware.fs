@@ -10,19 +10,19 @@ type GQLWebSocketMiddleware<'Root>(next : RequestDelegate,
                                    rootFactory : IGQLServerSocket -> 'Root, 
                                    socketManager : IGQLServerSocketManager<'Root>,
                                    socketFactory : WebSocket -> IGQLServerSocket) =
-    member __.Invoke(ctx : HttpContext) =
-        async {
-            if ctx.WebSockets.IsWebSocketRequest
-            then
-                let! socket = ctx.WebSockets.AcceptWebSocketAsync("graphql-ws") |> Async.AwaitTask
+    member __.Invoke(ctx : HttpContext) : Task =
+        if ctx.WebSockets.IsWebSocketRequest
+        then
+            ctx.WebSockets.AcceptWebSocketAsync("graphql-ws")
+            |> continueWithResult (fun socket ->
                 if not (ctx.WebSockets.WebSocketRequestedProtocols.Contains(socket.SubProtocol))
                 then
-                    do! socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Server only supports graphql-ws protocol.", ctx.RequestAborted) 
-                        |> Async.AwaitTask
+                    socket.CloseAsync(WebSocketCloseStatus.ProtocolError, "Server only supports graphql-ws protocol.", ctx.RequestAborted)
+                    |> wait
                 else
                     use socket = socketFactory socket
                     let root = rootFactory socket
-                    do! socketManager.StartSocket(socket, executor, root) |> Async.AwaitTask
-            else
-                do! next.Invoke(ctx) |> Async.AwaitTask
-        } |> Async.StartAsTask :> Task
+                    socketManager.StartSocket(socket, executor, root))
+            |> ignoreResult
+        else
+            next.Invoke(ctx)
