@@ -23,3 +23,4 @@ group Build
     nuget Fake.Core.Target
     nuget Fake.DotNet.Testing.Expecto
     nuget Fake.DotNet.Paket
+    nuget Fake.Core.ReleaseNotes
