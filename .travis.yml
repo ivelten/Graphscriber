@@ -5,4 +5,4 @@ dist: trusty
 before_install:
   - chmod +x fake.sh
 script:
-  ./fake.sh build
+  ./fake.sh
