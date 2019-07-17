@@ -260,3 +260,8 @@ __pycache__/
 
 # Ionide
 .ionide
+
+# AssemblyInfo files
+src/**/AssemblyInfo.fs
+src/**/AssemblyInfo.cs
+src/**/AssemblyInfo.vb
