@@ -18,6 +18,7 @@ realpath() {
 }
 
 TOOL_PATH=$(realpath .fake)
+PAKET_PATH=$(realpath .paket)
 FAKE="$TOOL_PATH"/fake
 PAKET_BOOTSTRAPPER_EXE="$PAKET_PATH"/paket.bootstrapper.exe
 
