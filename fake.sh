@@ -19,6 +19,16 @@ realpath() {
 
 TOOL_PATH=$(realpath .fake)
 FAKE="$TOOL_PATH"/fake
+PAKET_BOOTSTRAPPER_EXE="$PAKET_PATH"/paket.bootstrapper.exe
+
+OS=${OS:-"unknown"}
+
+if [[ "$OS" != "Windows_NT" ]]
+then
+  mono "$PAKET_BOOTSTRAPPER_EXE"
+else
+  "$PAKET_BOOTSTRAPPER_EXE"
+fi
 
 if ! [ -e "$FAKE" ]
 then
