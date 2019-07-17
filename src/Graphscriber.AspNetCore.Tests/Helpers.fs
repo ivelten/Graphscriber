@@ -9,7 +9,6 @@ open System
 open System.Threading
 open System.Net.WebSockets
 open Microsoft.Extensions.Primitives
-open FSharp.Data.GraphQL.Execution
 
 [<AllowNullLiteral>]
 type GQLClientConnection(socket : WebSocket) =
@@ -41,7 +40,7 @@ let connect (socket : WebSocketClient) =
         socket.ConnectAsync(uri, CancellationToken.None)
         |> Async.AwaitTask
         |> Async.RunSynchronously
-    new GQLClientConnection(inner)
+    GQLClientConnection(inner)
 
 let send (message : GQLClientMessage) (connection : GQLClientConnection) =
     connection.SendMessage(message); connection
