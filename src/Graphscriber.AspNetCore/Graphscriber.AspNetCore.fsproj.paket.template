@@ -3,8 +3,8 @@ id Graphscriber.AspNetCore
 authors Ismael Carlos Velten
 projectUrl https://github.com/ivelten/Graphscriber
 licenseUrl https://github.com/ivelten/Graphscriber/blob/master/LICENSE.txt
+language F#
 requireLicenseAcceptance false
-copyright Copyright (c) 2016 Bazinga Technologies Inc
 tags
     FSharp GraphQL AspNetCore AspNet Sockets
 summary
