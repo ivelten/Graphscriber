@@ -1,12 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Graphscriber.AspNetCore.Tests.WebApp\Graphscriber.AspNetCore.Tests.WebApp.fsproj" />
-  </ItemGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
     <Compile Include="Integration.fs" />
@@ -14,6 +11,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Graphscriber.AspNetCore.Tests.WebApp\Graphscriber.AspNetCore.Tests.WebApp.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

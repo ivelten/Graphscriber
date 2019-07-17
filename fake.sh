@@ -18,10 +18,21 @@ realpath() {
 }
 
 TOOL_PATH=$(realpath .fake)
+PAKET_PATH=$(realpath .paket)
 FAKE="$TOOL_PATH"/fake
+PAKET_BOOTSTRAPPER_EXE="$PAKET_PATH"/paket.bootstrapper.exe
+
+OS=${OS:-"unknown"}
+
+if [[ "$OS" != "Windows_NT" ]]
+then
+  mono "$PAKET_BOOTSTRAPPER_EXE"
+else
+  "$PAKET_BOOTSTRAPPER_EXE"
+fi
 
 if ! [ -e "$FAKE" ]
 then
   dotnet tool install fake-cli --tool-path "$TOOL_PATH"
 fi
-"$FAKE" "$@"
+"$FAKE" run build.fsx "$@"

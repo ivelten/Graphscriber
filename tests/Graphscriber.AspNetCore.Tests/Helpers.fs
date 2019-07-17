@@ -9,7 +9,6 @@ open System
 open System.Threading
 open System.Net.WebSockets
 open Microsoft.Extensions.Primitives
-open FSharp.Data.GraphQL.Execution
 
 [<AllowNullLiteral>]
 type GQLClientConnection(socket : WebSocket) =
@@ -41,7 +40,7 @@ let connect (socket : WebSocketClient) =
         socket.ConnectAsync(uri, CancellationToken.None)
         |> Async.AwaitTask
         |> Async.RunSynchronously
-    new GQLClientConnection(inner)
+    GQLClientConnection(inner)
 
 let send (message : GQLClientMessage) (connection : GQLClientConnection) =
     connection.SendMessage(message); connection
@@ -83,7 +82,7 @@ let waitMessage (connection : GQLClientConnection) =
     receiveMessage connection |> ignore; connection
 
 let createServer () =
-    new TestServer(Program.createWebHostBuilder [||])
+    new TestServer(Program.createWebHostBuilder<TestStartup> [||])
 
 let createHttpClient (server : TestServer) =
     server.CreateClient()
@@ -96,7 +95,10 @@ let setProtocol (protocol : string) (client : WebSocketClient) =
     client
 
 let isSome (item : 'a option) =
-    Expect.isSome item "Expected option to have a value"; item.Value
+    Expect.isSome item (sprintf "Expected option to be Some (%A)" item); item.Value
+
+let isNone (item: 'a option) =
+    Expect.isNone item "Expected option to be None"
 
 let isData expectedId expectedData (message : GQLServerMessage) =
     match message with

@@ -1,0 +1,6 @@
+FSharp.Core
+Microsoft.AspNetCore.App
+Giraffe
+System.Reactive
+System.Reactive.Linq
+System.Reactive.Interfaces

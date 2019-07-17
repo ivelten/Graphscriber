@@ -257,3 +257,11 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+
+# Ionide
+.ionide
+
+# AssemblyInfo files
+src/**/AssemblyInfo.fs
+src/**/AssemblyInfo.cs
+src/**/AssemblyInfo.vb
