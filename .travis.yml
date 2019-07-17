@@ -1,6 +1,6 @@
 language: csharp
 sudo: required
-dotnet: 2.2.301
+dotnet: 2.2.101
 dist: trusty
 before_install:
   - chmod +x fake.sh
